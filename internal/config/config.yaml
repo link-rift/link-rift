@@ -1,0 +1,48 @@
+app:
+  env: development
+  name: linkrift
+  port: 8080
+  base_url: http://localhost:8080
+  redirect_url: http://localhost:8081
+  frontend_url: http://localhost:3000
+
+database:
+  url: postgres://linkrift:linkrift_dev@localhost:5432/linkrift?sslmode=disable
+  max_open_conns: 25
+  max_idle_conns: 10
+  conn_max_lifetime: 5m
+
+redis:
+  url: redis://localhost:6379
+  db: 0
+
+clickhouse:
+  url: http://localhost:8123
+  database: linkrift_analytics
+  user: linkrift
+  password: linkrift_dev
+
+meilisearch:
+  url: http://localhost:7700
+  api_key: linkrift_dev_key
+
+auth:
+  access_token_expiry: 15m
+  refresh_token_expiry: 168h
+
+smtp:
+  host: localhost
+  port: 1025
+  from: noreply@linkrift.io
+
+s3:
+  bucket: linkrift
+  region: us-east-1
+
+log:
+  level: debug
+  format: console
+
+ratelimit:
+  requests: 100
+  window: 1m

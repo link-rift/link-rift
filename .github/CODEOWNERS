@@ -1,0 +1,26 @@
+# Default owners
+* @link-rift/maintainers
+
+# Backend
+/cmd/ @link-rift/backend
+/internal/ @link-rift/backend
+/pkg/ @link-rift/backend
+go.mod @link-rift/backend
+go.sum @link-rift/backend
+
+# Frontend
+/web/ @link-rift/frontend
+
+# Infrastructure
+/docker/ @link-rift/devops
+/deployments/ @link-rift/devops
+docker-compose*.yml @link-rift/devops
+.github/workflows/ @link-rift/devops
+
+# Database
+/migrations/ @link-rift/backend
+/sqlc/ @link-rift/backend
+
+# Documentation
+/docs/ @link-rift/maintainers
+*.md @link-rift/maintainers

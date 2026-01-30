@@ -1,0 +1,155 @@
+name: CI
+
+on:
+  push:
+    branches: [main, develop]
+  pull_request:
+    branches: [main, develop]
+
+env:
+  GO_VERSION: "1.22"
+  NODE_VERSION: "22"
+
+jobs:
+  changes:
+    name: Detect Changes
+    runs-on: ubuntu-latest
+    outputs:
+      go: ${{ steps.filter.outputs.go }}
+      frontend: ${{ steps.filter.outputs.frontend }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dorny/paths-filter@v3
+        id: filter
+        with:
+          filters: |
+            go:
+              - "**.go"
+              - "go.mod"
+              - "go.sum"
+              - ".golangci.yml"
+            frontend:
+              - "web/**"
+
+  backend-lint:
+    name: Backend Lint
+    needs: [changes]
+    if: needs.changes.outputs.go == "true"
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version: ${{ env.GO_VERSION }}
+          cache: true
+      - uses: golangci/golangci-lint-action@v4
+        with:
+          version: v1.55.2
+          args: --timeout=5m
+      - name: Check go mod tidy
+        run: |
+          go mod tidy
+          git diff --exit-code go.mod go.sum
+      - name: Check formatting
+        run: test -z "$(gofmt -l .)"
+
+  backend-test:
+    name: Backend Test
+    needs: [changes]
+    if: needs.changes.outputs.go == "true"
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: test
+          POSTGRES_PASSWORD: test
+          POSTGRES_DB: linkrift_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+      redis:
+        image: redis:7-alpine
+        ports:
+          - 6379:6379
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version: ${{ env.GO_VERSION }}
+          cache: true
+      - name: Run tests
+        run: go test -v -race -coverprofile=coverage.out -covermode=atomic ./...
+        env:
+          DATABASE_URL: postgres://test:test@localhost:5432/linkrift_test?sslmode=disable
+          REDIS_URL: redis://localhost:6379/0
+      - uses: codecov/codecov-action@v4
+        with:
+          files: ./coverage.out
+          fail_ci_if_error: false
+
+  backend-build:
+    name: Backend Build
+    needs: [changes]
+    if: needs.changes.outputs.go == "true"
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        service: [api, redirect, worker]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version: ${{ env.GO_VERSION }}
+          cache: true
+      - name: Build
+        run: CGO_ENABLED=0 go build -o build/${{ matrix.service }} ./cmd/${{ matrix.service }}
+      - uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.service }}
+          path: build/${{ matrix.service }}
+          retention-days: 7
+
+  frontend-lint-test:
+    name: Frontend Lint & Build
+    needs: [changes]
+    if: needs.changes.outputs.frontend == "true"
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: web
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+          cache-dependency-path: web/package-lock.json
+      - run: npm ci
+      - run: npm run build
+
+  ci-success:
+    name: CI Success
+    runs-on: ubuntu-latest
+    needs: [backend-lint, backend-test, backend-build, frontend-lint-test]
+    if: always()
+    steps:
+      - name: Check results
+        run: |
+          if [[ "${{ needs.backend-lint.result }}" == "failure" ]] || \
+             [[ "${{ needs.backend-test.result }}" == "failure" ]] || \
+             [[ "${{ needs.backend-build.result }}" == "failure" ]] || \
+             [[ "${{ needs.frontend-lint-test.result }}" == "failure" ]]; then
+            echo "One or more jobs failed"
+            exit 1
+          fi
+          echo "All CI jobs passed\!"
