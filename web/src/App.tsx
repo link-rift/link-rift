@@ -8,6 +8,7 @@ import RegisterPage from "@/pages/auth/RegisterPage"
 import ForgotPasswordPage from "@/pages/auth/ForgotPasswordPage"
 import ResetPasswordPage from "@/pages/auth/ResetPasswordPage"
 import DashboardPage from "@/pages/dashboard/DashboardPage"
+import LinksPage from "@/pages/dashboard/LinksPage"
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -33,6 +34,7 @@ export default function App() {
           <Route element={<ProtectedRoute />}>
             <Route element={<AppLayout />}>
               <Route path="/" element={<DashboardPage />} />
+              <Route path="/links" element={<LinksPage />} />
             </Route>
           </Route>
           <Route path="*" element={<Navigate to="/" replace />} />

@@ -93,6 +93,8 @@ func main() {
 	userRepo := repository.NewUserRepository(queries, logger)
 	sessionRepo := repository.NewSessionRepository(queries, logger)
 	resetRepo := repository.NewPasswordResetRepository(queries, logger)
+	linkRepo := repository.NewLinkRepository(queries, logger)
+	clickRepo := repository.NewClickRepository(queries, logger)
 
 	// 9. Create services
 	authService := service.NewAuthService(
@@ -100,10 +102,12 @@ func main() {
 		tokenMaker, pgDB.Pool(), redisDB.Client(),
 		cfg, logger,
 	)
+	linkService := service.NewLinkService(linkRepo, clickRepo, pgDB.Pool(), redisDB.Client(), cfg, logger)
 
 	// 10. Create handlers
 	authHandler := handler.NewAuthHandler(authService, logger)
 	licenseHandler := handler.NewLicenseHandler(licManager, logger)
+	linkHandler := handler.NewLinkHandler(linkService, logger)
 
 	// 11. Create Gin router
 	if cfg.App.Env == "production" {
@@ -134,6 +138,7 @@ func main() {
 	authMw := middleware.RequireAuth(tokenMaker, userRepo)
 	authHandler.RegisterRoutes(v1, authMw)
 	licenseHandler.RegisterRoutes(v1, authMw)
+	linkHandler.RegisterRoutes(v1, authMw)
 
 	// 14. Start server with graceful shutdown
 	srv := &http.Server{

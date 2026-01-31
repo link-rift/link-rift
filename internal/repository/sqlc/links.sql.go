@@ -165,6 +165,92 @@ func (q *Queries) GetLinkByShortCode(ctx context.Context, shortCode string) (Lin
 	return i, err
 }
 
+const getLinkByURL = `-- name: GetLinkByURL :one
+SELECT id, user_id, workspace_id, domain_id, url, short_code, title, description, favicon_url, og_image_url, is_active, password_hash, expires_at, max_clicks, utm_source, utm_medium, utm_campaign, utm_term, utm_content, total_clicks, unique_clicks, created_at, updated_at, deleted_at FROM links
+WHERE url = $1 AND workspace_id = $2 AND deleted_at IS NULL
+`
+
+type GetLinkByURLParams struct {
+	Url         string    `json:"url"`
+	WorkspaceID uuid.UUID `json:"workspace_id"`
+}
+
+func (q *Queries) GetLinkByURL(ctx context.Context, arg GetLinkByURLParams) (Link, error) {
+	row := q.db.QueryRow(ctx, getLinkByURL, arg.Url, arg.WorkspaceID)
+	var i Link
+	err := row.Scan(
+		&i.ID,
+		&i.UserID,
+		&i.WorkspaceID,
+		&i.DomainID,
+		&i.Url,
+		&i.ShortCode,
+		&i.Title,
+		&i.Description,
+		&i.FaviconUrl,
+		&i.OgImageUrl,
+		&i.IsActive,
+		&i.PasswordHash,
+		&i.ExpiresAt,
+		&i.MaxClicks,
+		&i.UtmSource,
+		&i.UtmMedium,
+		&i.UtmCampaign,
+		&i.UtmTerm,
+		&i.UtmContent,
+		&i.TotalClicks,
+		&i.UniqueClicks,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+		&i.DeletedAt,
+	)
+	return i, err
+}
+
+const getLinkCountForWorkspace = `-- name: GetLinkCountForWorkspace :one
+SELECT COUNT(*) AS count FROM links
+WHERE workspace_id = $1 AND deleted_at IS NULL
+`
+
+func (q *Queries) GetLinkCountForWorkspace(ctx context.Context, workspaceID uuid.UUID) (int64, error) {
+	row := q.db.QueryRow(ctx, getLinkCountForWorkspace, workspaceID)
+	var count int64
+	err := row.Scan(&count)
+	return count, err
+}
+
+const getLinkQuickStats = `-- name: GetLinkQuickStats :one
+SELECT
+    l.total_clicks,
+    l.unique_clicks,
+    l.created_at,
+    (SELECT COUNT(*) FROM clicks WHERE link_id = l.id AND clicked_at >= NOW() - INTERVAL '24 hours') AS clicks_24h,
+    (SELECT COUNT(*) FROM clicks WHERE link_id = l.id AND clicked_at >= NOW() - INTERVAL '7 days') AS clicks_7d
+FROM links l
+WHERE l.id = $1 AND l.deleted_at IS NULL
+`
+
+type GetLinkQuickStatsRow struct {
+	TotalClicks  int64              `json:"total_clicks"`
+	UniqueClicks int64              `json:"unique_clicks"`
+	CreatedAt    pgtype.Timestamptz `json:"created_at"`
+	Clicks24h    int64              `json:"clicks_24h"`
+	Clicks7d     int64              `json:"clicks_7d"`
+}
+
+func (q *Queries) GetLinkQuickStats(ctx context.Context, id uuid.UUID) (GetLinkQuickStatsRow, error) {
+	row := q.db.QueryRow(ctx, getLinkQuickStats, id)
+	var i GetLinkQuickStatsRow
+	err := row.Scan(
+		&i.TotalClicks,
+		&i.UniqueClicks,
+		&i.CreatedAt,
+		&i.Clicks24h,
+		&i.Clicks7d,
+	)
+	return i, err
+}
+
 const incrementLinkClicks = `-- name: IncrementLinkClicks :exec
 UPDATE links
 SET total_clicks = total_clicks + 1, updated_at = NOW()
@@ -173,6 +259,17 @@ WHERE id = $1
 
 func (q *Queries) IncrementLinkClicks(ctx context.Context, id uuid.UUID) error {
 	_, err := q.db.Exec(ctx, incrementLinkClicks, id)
+	return err
+}
+
+const incrementLinkUniqueClicks = `-- name: IncrementLinkUniqueClicks :exec
+UPDATE links
+SET unique_clicks = unique_clicks + 1, updated_at = NOW()
+WHERE id = $1
+`
+
+func (q *Queries) IncrementLinkUniqueClicks(ctx context.Context, id uuid.UUID) error {
+	_, err := q.db.Exec(ctx, incrementLinkUniqueClicks, id)
 	return err
 }
 
@@ -274,6 +371,20 @@ func (q *Queries) ListLinksForWorkspace(ctx context.Context, arg ListLinksForWor
 		return nil, err
 	}
 	return items, nil
+}
+
+const shortCodeExists = `-- name: ShortCodeExists :one
+SELECT EXISTS(
+    SELECT 1 FROM links
+    WHERE short_code = $1 AND deleted_at IS NULL
+) AS exists
+`
+
+func (q *Queries) ShortCodeExists(ctx context.Context, shortCode string) (bool, error) {
+	row := q.db.QueryRow(ctx, shortCodeExists, shortCode)
+	var exists bool
+	err := row.Scan(&exists)
+	return exists, err
 }
 
 const softDeleteLink = `-- name: SoftDeleteLink :exec

@@ -52,3 +52,32 @@ WHERE id = $1 AND deleted_at IS NULL;
 UPDATE links
 SET total_clicks = total_clicks + 1, updated_at = NOW()
 WHERE id = $1;
+
+-- name: GetLinkByURL :one
+SELECT * FROM links
+WHERE url = $1 AND workspace_id = $2 AND deleted_at IS NULL;
+
+-- name: ShortCodeExists :one
+SELECT EXISTS(
+    SELECT 1 FROM links
+    WHERE short_code = $1 AND deleted_at IS NULL
+) AS exists;
+
+-- name: GetLinkCountForWorkspace :one
+SELECT COUNT(*) AS count FROM links
+WHERE workspace_id = $1 AND deleted_at IS NULL;
+
+-- name: GetLinkQuickStats :one
+SELECT
+    l.total_clicks,
+    l.unique_clicks,
+    l.created_at,
+    (SELECT COUNT(*) FROM clicks WHERE link_id = l.id AND clicked_at >= NOW() - INTERVAL '24 hours') AS clicks_24h,
+    (SELECT COUNT(*) FROM clicks WHERE link_id = l.id AND clicked_at >= NOW() - INTERVAL '7 days') AS clicks_7d
+FROM links l
+WHERE l.id = $1 AND l.deleted_at IS NULL;
+
+-- name: IncrementLinkUniqueClicks :exec
+UPDATE links
+SET unique_clicks = unique_clicks + 1, updated_at = NOW()
+WHERE id = $1;

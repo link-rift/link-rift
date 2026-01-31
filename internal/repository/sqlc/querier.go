@@ -17,18 +17,25 @@ type Querier interface {
 	CreateAuditLog(ctx context.Context, arg CreateAuditLogParams) error
 	CreateDomain(ctx context.Context, arg CreateDomainParams) (Domain, error)
 	CreateLink(ctx context.Context, arg CreateLinkParams) (Link, error)
+	CreateLinkRule(ctx context.Context, arg CreateLinkRuleParams) (LinkRule, error)
 	CreatePasswordReset(ctx context.Context, arg CreatePasswordResetParams) (PasswordReset, error)
 	CreateSession(ctx context.Context, arg CreateSessionParams) (Session, error)
 	CreateUser(ctx context.Context, arg CreateUserParams) (User, error)
 	CreateWorkspace(ctx context.Context, arg CreateWorkspaceParams) (Workspace, error)
 	DeleteExpiredPasswordResets(ctx context.Context) error
 	DeleteExpiredSessions(ctx context.Context) error
+	DeleteLinkRule(ctx context.Context, id uuid.UUID) error
 	GetAPIKeyByPrefix(ctx context.Context, keyPrefix string) (ApiKey, error)
+	GetActiveRulesForLink(ctx context.Context, linkID uuid.UUID) ([]LinkRule, error)
 	GetClicksByLinkID(ctx context.Context, arg GetClicksByLinkIDParams) ([]Click, error)
 	GetDomainByDomain(ctx context.Context, domain string) (Domain, error)
 	GetDomainByID(ctx context.Context, id uuid.UUID) (Domain, error)
 	GetLinkByID(ctx context.Context, id uuid.UUID) (Link, error)
 	GetLinkByShortCode(ctx context.Context, shortCode string) (Link, error)
+	GetLinkByURL(ctx context.Context, arg GetLinkByURLParams) (Link, error)
+	GetLinkCountForWorkspace(ctx context.Context, workspaceID uuid.UUID) (int64, error)
+	GetLinkQuickStats(ctx context.Context, id uuid.UUID) (GetLinkQuickStatsRow, error)
+	GetLinkRuleByID(ctx context.Context, id uuid.UUID) (LinkRule, error)
 	GetPasswordResetByToken(ctx context.Context, tokenHash string) (PasswordReset, error)
 	GetSessionByToken(ctx context.Context, refreshTokenHash string) (Session, error)
 	GetUserByEmail(ctx context.Context, email string) (User, error)
@@ -37,6 +44,7 @@ type Querier interface {
 	GetWorkspaceBySlug(ctx context.Context, slug string) (Workspace, error)
 	GetWorkspaceMember(ctx context.Context, arg GetWorkspaceMemberParams) (WorkspaceMember, error)
 	IncrementLinkClicks(ctx context.Context, id uuid.UUID) error
+	IncrementLinkUniqueClicks(ctx context.Context, id uuid.UUID) error
 	InsertClick(ctx context.Context, arg InsertClickParams) error
 	ListAPIKeysForWorkspace(ctx context.Context, workspaceID pgtype.UUID) ([]ApiKey, error)
 	ListAuditLogsForWorkspace(ctx context.Context, arg ListAuditLogsForWorkspaceParams) ([]AuditLog, error)
@@ -51,12 +59,14 @@ type Querier interface {
 	RevokeAllUserSessions(ctx context.Context, userID uuid.UUID) error
 	RevokeSession(ctx context.Context, id uuid.UUID) error
 	SetEmailVerified(ctx context.Context, id uuid.UUID) error
+	ShortCodeExists(ctx context.Context, shortCode string) (bool, error)
 	SoftDeleteDomain(ctx context.Context, id uuid.UUID) error
 	SoftDeleteLink(ctx context.Context, id uuid.UUID) error
 	SoftDeleteUser(ctx context.Context, id uuid.UUID) error
 	SoftDeleteWorkspace(ctx context.Context, id uuid.UUID) error
 	UpdateDomain(ctx context.Context, arg UpdateDomainParams) (Domain, error)
 	UpdateLink(ctx context.Context, arg UpdateLinkParams) (Link, error)
+	UpdateLinkRule(ctx context.Context, arg UpdateLinkRuleParams) (LinkRule, error)
 	UpdateMemberRole(ctx context.Context, arg UpdateMemberRoleParams) (WorkspaceMember, error)
 	UpdateUser(ctx context.Context, arg UpdateUserParams) (User, error)
 	UpdateUserPassword(ctx context.Context, arg UpdateUserPasswordParams) error
