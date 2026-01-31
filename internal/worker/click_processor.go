@@ -12,6 +12,7 @@ import (
 	"github.com/link-rift/link-rift/internal/redirect"
 	"github.com/link-rift/link-rift/internal/repository"
 	"github.com/link-rift/link-rift/internal/repository/sqlc"
+	"github.com/link-rift/link-rift/internal/service"
 	"github.com/redis/go-redis/v9"
 	"go.uber.org/zap"
 )
@@ -30,6 +31,7 @@ type ClickProcessor struct {
 	botDetector *redirect.BotDetector
 	geoLookup   *GeoLookup
 	chForwarder *ClickHouseForwarder
+	events      service.EventPublisher
 	logger      *zap.Logger
 	done        chan struct{}
 }
@@ -59,6 +61,11 @@ func (cp *ClickProcessor) SetGeoLookup(gl *GeoLookup) {
 // SetClickHouseForwarder attaches an optional ClickHouse forwarder.
 func (cp *ClickProcessor) SetClickHouseForwarder(f *ClickHouseForwarder) {
 	cp.chForwarder = f
+}
+
+// SetEventPublisher attaches an optional webhook event publisher.
+func (cp *ClickProcessor) SetEventPublisher(ep service.EventPublisher) {
+	cp.events = ep
 }
 
 // Start begins processing click events from the Redis queue.
@@ -205,6 +212,22 @@ func (cp *ClickProcessor) processEvents(ctx context.Context, events []*models.Cl
 			notifData, err := json.Marshal(notification)
 			if err == nil {
 				cp.redis.Publish(ctx, "clicks:realtime", notifData)
+			}
+		}
+
+		// Publish webhook event for link.clicked (best-effort, non-bot only)
+		if !isBot && cp.events != nil {
+			clickData := map[string]any{
+				"link_id":      event.LinkID,
+				"short_code":   event.ShortCode,
+				"timestamp":    event.Timestamp,
+				"country_code": countryCode,
+				"device_type":  deviceType,
+				"browser":      browser,
+				"referer":      event.Referer,
+			}
+			if err := cp.events.Publish(ctx, "link.clicked", event.WorkspaceID, clickData); err != nil {
+				cp.logger.Warn("failed to publish link.clicked webhook event", zap.Error(err))
 			}
 		}
 	}

@@ -3,6 +3,10 @@ INSERT INTO api_keys (user_id, workspace_id, name, key_hash, key_prefix, scopes,
 VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
 RETURNING *;
 
+-- name: GetAPIKeyByID :one
+SELECT * FROM api_keys
+WHERE id = $1 AND revoked_at IS NULL;
+
 -- name: GetAPIKeyByPrefix :one
 SELECT * FROM api_keys
 WHERE key_prefix = $1 AND revoked_at IS NULL;
@@ -16,3 +20,8 @@ ORDER BY created_at DESC;
 UPDATE api_keys
 SET revoked_at = NOW()
 WHERE id = $1 AND revoked_at IS NULL;
+
+-- name: UpdateAPIKeyLastUsed :exec
+UPDATE api_keys
+SET last_used_at = NOW(), request_count = request_count + 1
+WHERE id = $1;

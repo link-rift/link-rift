@@ -37,6 +37,7 @@ type workspaceService struct {
 	memberRepo repository.WorkspaceMemberRepository
 	userRepo   repository.UserRepository
 	licManager *license.Manager
+	events     EventPublisher
 	pool       *pgxpool.Pool
 	logger     *zap.Logger
 }
@@ -46,6 +47,7 @@ func NewWorkspaceService(
 	memberRepo repository.WorkspaceMemberRepository,
 	userRepo repository.UserRepository,
 	licManager *license.Manager,
+	events EventPublisher,
 	pool *pgxpool.Pool,
 	logger *zap.Logger,
 ) WorkspaceService {
@@ -54,6 +56,7 @@ func NewWorkspaceService(
 		memberRepo: memberRepo,
 		userRepo:   userRepo,
 		licManager: licManager,
+		events:     events,
 		pool:       pool,
 		logger:     logger,
 	}
@@ -178,6 +181,11 @@ func (s *workspaceService) InviteMember(ctx context.Context, workspaceID, invite
 		return nil, err
 	}
 
+	// Publish webhook event (best-effort)
+	if err := s.events.Publish(ctx, "team.member_invited", workspaceID, member); err != nil {
+		s.logger.Warn("failed to publish team.member_invited event", zap.Error(err))
+	}
+
 	return member, nil
 }
 
@@ -203,7 +211,16 @@ func (s *workspaceService) RemoveMember(ctx context.Context, workspaceID, actorI
 		}
 	}
 
-	return s.memberRepo.Remove(ctx, workspaceID, targetUserID)
+	if err := s.memberRepo.Remove(ctx, workspaceID, targetUserID); err != nil {
+		return err
+	}
+
+	// Publish webhook event (best-effort)
+	if err := s.events.Publish(ctx, "team.member_removed", workspaceID, target); err != nil {
+		s.logger.Warn("failed to publish team.member_removed event", zap.Error(err))
+	}
+
+	return nil
 }
 
 func (s *workspaceService) UpdateMemberRole(ctx context.Context, workspaceID, actorID, targetUserID uuid.UUID, input models.UpdateMemberRoleInput) (*models.WorkspaceMember, error) {

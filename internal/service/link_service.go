@@ -42,6 +42,7 @@ type linkService struct {
 	redis     *redis.Client
 	cfg       *config.Config
 	codeGen   shortcode.Generator
+	events    EventPublisher
 	logger    *zap.Logger
 }
 
@@ -51,6 +52,7 @@ func NewLinkService(
 	pool *pgxpool.Pool,
 	redisClient *redis.Client,
 	cfg *config.Config,
+	events EventPublisher,
 	logger *zap.Logger,
 ) LinkService {
 	return &linkService{
@@ -60,6 +62,7 @@ func NewLinkService(
 		redis:     redisClient,
 		cfg:       cfg,
 		codeGen:   shortcode.NewGenerator(),
+		events:    events,
 		logger:    logger,
 	}
 }
@@ -137,6 +140,11 @@ func (s *linkService) CreateLink(ctx context.Context, userID, workspaceID uuid.U
 		return nil, err
 	}
 
+	// Publish webhook event (best-effort)
+	if err := s.events.Publish(ctx, "link.created", workspaceID, link); err != nil {
+		s.logger.Warn("failed to publish link.created event", zap.Error(err))
+	}
+
 	return link, nil
 }
 
@@ -205,6 +213,11 @@ func (s *linkService) UpdateLink(ctx context.Context, id, workspaceID uuid.UUID,
 		return nil, err
 	}
 
+	// Publish webhook event (best-effort)
+	if err := s.events.Publish(ctx, "link.updated", workspaceID, link); err != nil {
+		s.logger.Warn("failed to publish link.updated event", zap.Error(err))
+	}
+
 	return link, nil
 }
 
@@ -218,7 +231,16 @@ func (s *linkService) DeleteLink(ctx context.Context, id, workspaceID uuid.UUID)
 		return httputil.Forbidden("link does not belong to this workspace")
 	}
 
-	return s.linkRepo.SoftDelete(ctx, id)
+	if err := s.linkRepo.SoftDelete(ctx, id); err != nil {
+		return err
+	}
+
+	// Publish webhook event (best-effort)
+	if err := s.events.Publish(ctx, "link.deleted", workspaceID, existing); err != nil {
+		s.logger.Warn("failed to publish link.deleted event", zap.Error(err))
+	}
+
+	return nil
 }
 
 func (s *linkService) GetLink(ctx context.Context, id uuid.UUID) (*models.Link, error) {

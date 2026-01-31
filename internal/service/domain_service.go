@@ -47,6 +47,7 @@ type domainService struct {
 	licManager  *license.Manager
 	sslProvider SSLProvider
 	dnsResolver DNSResolver
+	events      EventPublisher
 	cfg         *config.Config
 	logger      *zap.Logger
 }
@@ -56,6 +57,7 @@ func NewDomainService(
 	licManager *license.Manager,
 	sslProvider SSLProvider,
 	cfg *config.Config,
+	events EventPublisher,
 	logger *zap.Logger,
 ) DomainService {
 	return &domainService{
@@ -63,6 +65,7 @@ func NewDomainService(
 		licManager:  licManager,
 		sslProvider: sslProvider,
 		dnsResolver: &netResolver{resolver: net.DefaultResolver},
+		events:      events,
 		cfg:         cfg,
 		logger:      logger,
 	}
@@ -114,6 +117,11 @@ func (s *domainService) AddDomain(ctx context.Context, workspaceID uuid.UUID, in
 	})
 	if err != nil {
 		return nil, err
+	}
+
+	// Publish webhook event (best-effort)
+	if err := s.events.Publish(ctx, "domain.added", workspaceID, d); err != nil {
+		s.logger.Warn("failed to publish domain.added event", zap.Error(err))
 	}
 
 	return d, nil
@@ -198,6 +206,11 @@ func (s *domainService) VerifyDomain(ctx context.Context, id, workspaceID uuid.U
 		return nil, err
 	}
 
+	// Publish webhook event (best-effort)
+	if err := s.events.Publish(ctx, "domain.verified", workspaceID, d); err != nil {
+		s.logger.Warn("failed to publish domain.verified event", zap.Error(err))
+	}
+
 	return d, nil
 }
 
@@ -218,7 +231,16 @@ func (s *domainService) RemoveDomain(ctx context.Context, id, workspaceID uuid.U
 		}
 	}
 
-	return s.domainRepo.SoftDelete(ctx, id)
+	if err := s.domainRepo.SoftDelete(ctx, id); err != nil {
+		return err
+	}
+
+	// Publish webhook event (best-effort)
+	if err := s.events.Publish(ctx, "domain.removed", d.WorkspaceID, d); err != nil {
+		s.logger.Warn("failed to publish domain.removed event", zap.Error(err))
+	}
+
+	return nil
 }
 
 func (s *domainService) GetDNSRecords(ctx context.Context, id uuid.UUID) (*models.VerificationInstructions, error) {

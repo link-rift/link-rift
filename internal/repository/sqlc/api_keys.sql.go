@@ -59,6 +59,32 @@ func (q *Queries) CreateAPIKey(ctx context.Context, arg CreateAPIKeyParams) (Api
 	return i, err
 }
 
+const getAPIKeyByID = `-- name: GetAPIKeyByID :one
+SELECT id, user_id, workspace_id, name, key_hash, key_prefix, scopes, last_used_at, request_count, rate_limit, expires_at, created_at, revoked_at FROM api_keys
+WHERE id = $1 AND revoked_at IS NULL
+`
+
+func (q *Queries) GetAPIKeyByID(ctx context.Context, id uuid.UUID) (ApiKey, error) {
+	row := q.db.QueryRow(ctx, getAPIKeyByID, id)
+	var i ApiKey
+	err := row.Scan(
+		&i.ID,
+		&i.UserID,
+		&i.WorkspaceID,
+		&i.Name,
+		&i.KeyHash,
+		&i.KeyPrefix,
+		&i.Scopes,
+		&i.LastUsedAt,
+		&i.RequestCount,
+		&i.RateLimit,
+		&i.ExpiresAt,
+		&i.CreatedAt,
+		&i.RevokedAt,
+	)
+	return i, err
+}
+
 const getAPIKeyByPrefix = `-- name: GetAPIKeyByPrefix :one
 SELECT id, user_id, workspace_id, name, key_hash, key_prefix, scopes, last_used_at, request_count, rate_limit, expires_at, created_at, revoked_at FROM api_keys
 WHERE key_prefix = $1 AND revoked_at IS NULL
@@ -133,5 +159,16 @@ WHERE id = $1 AND revoked_at IS NULL
 
 func (q *Queries) RevokeAPIKey(ctx context.Context, id uuid.UUID) error {
 	_, err := q.db.Exec(ctx, revokeAPIKey, id)
+	return err
+}
+
+const updateAPIKeyLastUsed = `-- name: UpdateAPIKeyLastUsed :exec
+UPDATE api_keys
+SET last_used_at = NOW(), request_count = request_count + 1
+WHERE id = $1
+`
+
+func (q *Queries) UpdateAPIKeyLastUsed(ctx context.Context, id uuid.UUID) error {
+	_, err := q.db.Exec(ctx, updateAPIKeyLastUsed, id)
 	return err
 }

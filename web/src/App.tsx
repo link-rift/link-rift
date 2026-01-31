@@ -15,6 +15,8 @@ import AnalyticsPage from "@/pages/dashboard/AnalyticsPage"
 import CustomDomainsPage from "@/pages/dashboard/CustomDomainsPage"
 import BioPagesPage from "@/pages/dashboard/BioPagesPage"
 import BioPageEditorPage from "@/pages/dashboard/BioPageEditorPage"
+import APIKeysPage from "@/pages/dashboard/APIKeysPage"
+import WebhooksPage from "@/pages/dashboard/WebhooksPage"
 import PublicBioPage from "@/pages/public/PublicBioPage"
 
 const queryClient = new QueryClient({
@@ -47,6 +49,8 @@ export default function App() {
               <Route path="/domains" element={<CustomDomainsPage />} />
               <Route path="/bio-pages" element={<BioPagesPage />} />
               <Route path="/bio-pages/:id" element={<BioPageEditorPage />} />
+              <Route path="/api-keys" element={<APIKeysPage />} />
+              <Route path="/webhooks" element={<WebhooksPage />} />
               <Route path="/team" element={<TeamMembersPage />} />
               <Route path="/settings" element={<WorkspaceSettingsPage />} />
             </Route>

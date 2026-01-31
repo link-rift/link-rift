@@ -13,14 +13,20 @@ import (
 
 type Querier interface {
 	AddWorkspaceMember(ctx context.Context, arg AddWorkspaceMemberParams) (WorkspaceMember, error)
+	CountRecentWebhookFailures(ctx context.Context, webhookID uuid.UUID) (int64, error)
+	CountWebhookDeliveries(ctx context.Context, webhookID uuid.UUID) (int64, error)
 	CreateAPIKey(ctx context.Context, arg CreateAPIKeyParams) (ApiKey, error)
 	CreateAuditLog(ctx context.Context, arg CreateAuditLogParams) error
+	CreateWebhook(ctx context.Context, arg CreateWebhookParams) (Webhook, error)
+	CreateWebhookDelivery(ctx context.Context, arg CreateWebhookDeliveryParams) (WebhookDelivery, error)
 	CreateBioPage(ctx context.Context, arg CreateBioPageParams) (BioPage, error)
 	CreateBioPageLink(ctx context.Context, arg CreateBioPageLinkParams) (BioPageLink, error)
 	CreateDomain(ctx context.Context, arg CreateDomainParams) (Domain, error)
 	CreateLink(ctx context.Context, arg CreateLinkParams) (Link, error)
 	CreateQRCode(ctx context.Context, arg CreateQRCodeParams) (QrCode, error)
 	DeleteQRCode(ctx context.Context, id uuid.UUID) error
+	DeleteWebhook(ctx context.Context, id uuid.UUID) error
+	DisableWebhook(ctx context.Context, id uuid.UUID) error
 	GetQRCodeByID(ctx context.Context, id uuid.UUID) (QrCode, error)
 	GetQRCodeByLinkID(ctx context.Context, linkID uuid.UUID) (QrCode, error)
 	IncrementQRScanCount(ctx context.Context, id uuid.UUID) error
@@ -35,7 +41,12 @@ type Querier interface {
 	DeleteExpiredPasswordResets(ctx context.Context) error
 	DeleteExpiredSessions(ctx context.Context) error
 	DeleteLinkRule(ctx context.Context, id uuid.UUID) error
+	GetAPIKeyByID(ctx context.Context, id uuid.UUID) (ApiKey, error)
 	GetAPIKeyByPrefix(ctx context.Context, keyPrefix string) (ApiKey, error)
+	GetActiveWebhooksForEvent(ctx context.Context, arg GetActiveWebhooksForEventParams) ([]Webhook, error)
+	GetPendingWebhookDeliveries(ctx context.Context) ([]WebhookDelivery, error)
+	GetWebhookByID(ctx context.Context, id uuid.UUID) (Webhook, error)
+	GetWebhookDeliveryByID(ctx context.Context, id uuid.UUID) (WebhookDelivery, error)
 	GetActiveRulesForLink(ctx context.Context, linkID uuid.UUID) ([]LinkRule, error)
 	GetBioPageByID(ctx context.Context, id uuid.UUID) (BioPage, error)
 	GetBioPageBySlug(ctx context.Context, slug string) (BioPage, error)
@@ -61,10 +72,13 @@ type Querier interface {
 	GetWorkspaceBySlug(ctx context.Context, slug string) (Workspace, error)
 	GetWorkspaceMember(ctx context.Context, arg GetWorkspaceMemberParams) (WorkspaceMember, error)
 	IncrementBioPageLinkClickCount(ctx context.Context, id uuid.UUID) error
+	IncrementWebhookFailureCount(ctx context.Context, id uuid.UUID) error
 	IncrementLinkClicks(ctx context.Context, id uuid.UUID) error
 	IncrementLinkUniqueClicks(ctx context.Context, id uuid.UUID) error
 	InsertClick(ctx context.Context, arg InsertClickParams) error
 	ListAPIKeysForWorkspace(ctx context.Context, workspaceID pgtype.UUID) ([]ApiKey, error)
+	ListWebhookDeliveries(ctx context.Context, arg ListWebhookDeliveriesParams) ([]WebhookDelivery, error)
+	ListWebhooksForWorkspace(ctx context.Context, workspaceID uuid.UUID) ([]Webhook, error)
 	ListAuditLogsForWorkspace(ctx context.Context, arg ListAuditLogsForWorkspaceParams) ([]AuditLog, error)
 	ListBioPageLinks(ctx context.Context, bioPageID uuid.UUID) ([]BioPageLink, error)
 	ListBioPagesForWorkspace(ctx context.Context, workspaceID uuid.UUID) ([]BioPage, error)
@@ -75,6 +89,7 @@ type Querier interface {
 	ListWorkspacesForUser(ctx context.Context, userID uuid.UUID) ([]Workspace, error)
 	MarkPasswordResetUsed(ctx context.Context, id uuid.UUID) error
 	RemoveWorkspaceMember(ctx context.Context, arg RemoveWorkspaceMemberParams) error
+	ResetWebhookFailureCount(ctx context.Context, id uuid.UUID) error
 	RevokeAPIKey(ctx context.Context, id uuid.UUID) error
 	RevokeAllUserSessions(ctx context.Context, userID uuid.UUID) error
 	RevokeSession(ctx context.Context, id uuid.UUID) error
@@ -85,7 +100,11 @@ type Querier interface {
 	SoftDeleteLink(ctx context.Context, id uuid.UUID) error
 	SoftDeleteUser(ctx context.Context, id uuid.UUID) error
 	SoftDeleteWorkspace(ctx context.Context, id uuid.UUID) error
+	UpdateAPIKeyLastUsed(ctx context.Context, id uuid.UUID) error
 	UpdateBioPage(ctx context.Context, arg UpdateBioPageParams) (BioPage, error)
+	UpdateWebhook(ctx context.Context, arg UpdateWebhookParams) (Webhook, error)
+	UpdateWebhookDelivery(ctx context.Context, arg UpdateWebhookDeliveryParams) error
+	UpdateWebhookLastTriggered(ctx context.Context, id uuid.UUID) error
 	UpdateBioPageLink(ctx context.Context, arg UpdateBioPageLinkParams) (BioPageLink, error)
 	UpdateBioPageLinkPosition(ctx context.Context, arg UpdateBioPageLinkPositionParams) error
 	UpdateDomain(ctx context.Context, arg UpdateDomainParams) (Domain, error)

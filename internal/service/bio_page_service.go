@@ -47,17 +47,20 @@ type BioPageService interface {
 type bioPageService struct {
 	bioPageRepo repository.BioPageRepository
 	licManager  *license.Manager
+	events      EventPublisher
 	logger      *zap.Logger
 }
 
 func NewBioPageService(
 	bioPageRepo repository.BioPageRepository,
 	licManager *license.Manager,
+	events EventPublisher,
 	logger *zap.Logger,
 ) BioPageService {
 	return &bioPageService{
 		bioPageRepo: bioPageRepo,
 		licManager:  licManager,
+		events:      events,
 		logger:      logger,
 	}
 }
@@ -103,7 +106,17 @@ func (s *bioPageService) CreateBioPage(ctx context.Context, workspaceID uuid.UUI
 		params.OgImageUrl = pgtype.Text{String: *input.OgImageURL, Valid: true}
 	}
 
-	return s.bioPageRepo.Create(ctx, params)
+	page, err := s.bioPageRepo.Create(ctx, params)
+	if err != nil {
+		return nil, err
+	}
+
+	// Publish webhook event (best-effort)
+	if err := s.events.Publish(ctx, "biopage.created", workspaceID, page); err != nil {
+		s.logger.Warn("failed to publish biopage.created event", zap.Error(err))
+	}
+
+	return page, nil
 }
 
 func (s *bioPageService) GetBioPage(ctx context.Context, id uuid.UUID) (*models.BioPage, error) {
@@ -191,7 +204,17 @@ func (s *bioPageService) UpdateBioPage(ctx context.Context, id, workspaceID uuid
 		params.OgImageUrl = pgtype.Text{String: *input.OgImageURL, Valid: true}
 	}
 
-	return s.bioPageRepo.Update(ctx, params)
+	updated, err := s.bioPageRepo.Update(ctx, params)
+	if err != nil {
+		return nil, err
+	}
+
+	// Publish webhook event (best-effort)
+	if err := s.events.Publish(ctx, "biopage.updated", workspaceID, updated); err != nil {
+		s.logger.Warn("failed to publish biopage.updated event", zap.Error(err))
+	}
+
+	return updated, nil
 }
 
 func (s *bioPageService) DeleteBioPage(ctx context.Context, id, workspaceID uuid.UUID) error {

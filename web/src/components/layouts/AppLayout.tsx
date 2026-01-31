@@ -23,6 +23,8 @@ export default function AppLayout() {
     ...(canManageMembers()
       ? [
           { label: "Domains", href: "/domains" },
+          { label: "API Keys", href: "/api-keys" },
+          { label: "Webhooks", href: "/webhooks" },
           { label: "Team", href: "/team" },
           { label: "Settings", href: "/settings" },
         ]

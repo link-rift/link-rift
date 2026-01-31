@@ -119,6 +119,8 @@ func main() {
 	domainRepo := repository.NewDomainRepository(queries, logger)
 	qrCodeRepo := repository.NewQRCodeRepository(queries, logger)
 	bioPageRepo := repository.NewBioPageRepository(queries, logger)
+	apiKeyRepo := repository.NewAPIKeyRepository(queries, logger)
+	webhookRepo := repository.NewWebhookRepository(queries, logger)
 
 	// 9b. Create storage client (local fallback for development)
 	var objectStore storage.ObjectStorage
@@ -138,19 +140,24 @@ func main() {
 	qrGenerator := qrcode.NewGenerator(objectStore)
 	qrBatchGenerator := qrcode.NewBatchGenerator(qrGenerator, 4)
 
-	// 10. Create services
+	// 10. Create event publisher for webhooks
+	eventPublisher := service.NewEventPublisher(redisDB.Client(), logger)
+
+	// Create services
 	authService := service.NewAuthService(
 		userRepo, sessionRepo, resetRepo,
 		tokenMaker, pgDB.Pool(), redisDB.Client(),
 		cfg, logger,
 	)
-	linkService := service.NewLinkService(linkRepo, clickRepo, pgDB.Pool(), redisDB.Client(), cfg, logger)
-	workspaceService := service.NewWorkspaceService(workspaceRepo, memberRepo, userRepo, licManager, pgDB.Pool(), logger)
+	linkService := service.NewLinkService(linkRepo, clickRepo, pgDB.Pool(), redisDB.Client(), cfg, eventPublisher, logger)
+	workspaceService := service.NewWorkspaceService(workspaceRepo, memberRepo, userRepo, licManager, eventPublisher, pgDB.Pool(), logger)
 	analyticsService := service.NewAnalyticsService(analyticsRepo, clickRepo, licManager, logger)
 	sslProvider := service.NewMockSSLProvider()
-	domainService := service.NewDomainService(domainRepo, licManager, sslProvider, cfg, logger)
+	domainService := service.NewDomainService(domainRepo, licManager, sslProvider, cfg, eventPublisher, logger)
 	qrService := service.NewQRCodeService(qrCodeRepo, linkRepo, qrGenerator, qrBatchGenerator, objectStore, licManager, cfg, logger)
-	bioPageService := service.NewBioPageService(bioPageRepo, licManager, logger)
+	bioPageService := service.NewBioPageService(bioPageRepo, licManager, eventPublisher, logger)
+	apiKeyService := service.NewAPIKeyService(apiKeyRepo, licManager, redisDB.Client(), logger)
+	webhookService := service.NewWebhookService(webhookRepo, licManager, logger)
 
 	// 11. Create handlers
 	authHandler := handler.NewAuthHandler(authService, logger)
@@ -161,6 +168,8 @@ func main() {
 	domainHandler := handler.NewDomainHandler(domainService, logger)
 	qrHandler := handler.NewQRHandler(qrService, logger)
 	bioPageHandler := handler.NewBioPageHandler(bioPageService, logger)
+	apiKeyHandler := handler.NewAPIKeyHandler(apiKeyService, logger)
+	webhookHandler := handler.NewWebhookHandler(webhookService, logger)
 
 	// WebSocket real-time hub
 	wsHub := realtime.NewHub(logger)
@@ -183,7 +192,7 @@ func main() {
 		AllowOrigins:     []string{cfg.App.FrontendURL},
 		AllowMethods:     []string{"GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"},
 		AllowHeaders:     []string{"Origin", "Content-Type", "Accept", "Authorization"},
-		ExposeHeaders:    []string{"Content-Length"},
+		ExposeHeaders:    []string{"Content-Length", "X-RateLimit-Limit", "X-RateLimit-Remaining", "X-RateLimit-Reset", "X-RateLimit-Reset-After"},
 		AllowCredentials: true,
 		MaxAge:           12 * time.Hour,
 	}))
@@ -206,14 +215,24 @@ func main() {
 	wsAccessMw := middleware.RequireWorkspaceAccess(workspaceRepo, memberRepo)
 	workspaceHandler.RegisterRoutes(v1, authMw, wsAccessMw)
 
+	// API key auth middleware (processes X-API-Key header before session auth)
+	apiKeyAuthMw := middleware.APIKeyAuth(apiKeyService, userRepo, workspaceRepo, memberRepo)
+
 	// Link routes now live under /api/v1/workspaces/:workspaceId/links
 	wsScoped := v1.Group("/workspaces/:workspaceId", authMw, wsAccessMw)
 	editorMw := middleware.RequireWorkspaceRole(models.RoleEditor)
+	adminMw := middleware.RequireWorkspaceRole(models.RoleAdmin)
 	linkHandler.RegisterRoutes(wsScoped, editorMw)
 	domainHandler.RegisterRoutes(wsScoped, editorMw)
 	qrHandler.RegisterRoutes(wsScoped, editorMw)
 	bioPageHandler.RegisterRoutes(wsScoped, editorMw)
 	analyticsHandler.RegisterRoutes(wsScoped)
+	apiKeyHandler.RegisterRoutes(wsScoped, adminMw)
+	webhookHandler.RegisterRoutes(wsScoped, adminMw)
+
+	// API key authenticated routes (alternative auth for programmatic access)
+	apiScoped := v1.Group("/workspaces/:workspaceId", apiKeyAuthMw, wsAccessMw)
+	linkHandler.RegisterRoutes(apiScoped, editorMw)
 
 	// Public bio page routes (no auth)
 	bioPageHandler.RegisterPublicRoutes(router)

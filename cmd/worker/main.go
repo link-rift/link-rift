@@ -12,6 +12,7 @@ import (
 	"github.com/link-rift/link-rift/internal/redirect"
 	"github.com/link-rift/link-rift/internal/repository"
 	"github.com/link-rift/link-rift/internal/repository/sqlc"
+	"github.com/link-rift/link-rift/internal/service"
 	"github.com/link-rift/link-rift/internal/worker"
 	"go.uber.org/zap"
 )
@@ -55,7 +56,11 @@ func main() {
 	queries := sqlc.New(pgDB.Pool())
 	clickRepo := repository.NewClickRepository(queries, logger)
 	linkRepo := repository.NewLinkRepository(queries, logger)
+	webhookRepo := repository.NewWebhookRepository(queries, logger)
 	botDetector := redirect.NewBotDetector()
+
+	// 5b. Create event publisher for webhook events
+	eventPublisher := service.NewEventPublisher(redisDB.Client(), logger)
 
 	// 6. Create and start click processor
 	processor := worker.NewClickProcessor(
@@ -65,13 +70,22 @@ func main() {
 		botDetector,
 		logger,
 	)
+	processor.SetEventPublisher(eventPublisher)
+
+	// 6b. Create and start webhook delivery processor
+	webhookProcessor := worker.NewWebhookDeliveryProcessor(
+		redisDB.Client(),
+		webhookRepo,
+		logger,
+	)
 
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
 	go processor.Start(ctx)
+	go webhookProcessor.Start(ctx)
 
-	logger.Info("worker started, processing click events")
+	logger.Info("worker started, processing click events and webhook deliveries")
 
 	// 7. Wait for shutdown signal
 	quit := make(chan os.Signal, 1)
@@ -80,6 +94,7 @@ func main() {
 
 	logger.Info("shutting down worker...")
 	processor.Stop()
+	webhookProcessor.Stop()
 	cancel()
 
 	logger.Info("worker stopped")
