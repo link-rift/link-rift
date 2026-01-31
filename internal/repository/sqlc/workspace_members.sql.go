@@ -45,6 +45,17 @@ func (q *Queries) AddWorkspaceMember(ctx context.Context, arg AddWorkspaceMember
 	return i, err
 }
 
+const getMemberCountForWorkspace = `-- name: GetMemberCountForWorkspace :one
+SELECT COUNT(*) FROM workspace_members WHERE workspace_id = $1
+`
+
+func (q *Queries) GetMemberCountForWorkspace(ctx context.Context, workspaceID uuid.UUID) (int64, error) {
+	row := q.db.QueryRow(ctx, getMemberCountForWorkspace, workspaceID)
+	var count int64
+	err := row.Scan(&count)
+	return count, err
+}
+
 const getWorkspaceMember = `-- name: GetWorkspaceMember :one
 SELECT id, workspace_id, user_id, role, invited_by, joined_at, created_at FROM workspace_members
 WHERE workspace_id = $1 AND user_id = $2

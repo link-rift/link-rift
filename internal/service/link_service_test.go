@@ -396,16 +396,17 @@ func TestCreateLink_PastExpiration(t *testing.T) {
 func TestUpdateLink_ValidUpdate(t *testing.T) {
 	linkID := uuid.New()
 	userID := uuid.New()
+	workspaceID := uuid.New()
 
 	repo := &mockLinkRepo{
 		getByIDFn: func(_ context.Context, id uuid.UUID) (*models.Link, error) {
-			return makeLink(linkID, userID, uuid.New(), "abc123"), nil
+			return makeLink(linkID, userID, workspaceID, "abc123"), nil
 		},
 		updateFn: func(_ context.Context, params sqlc.UpdateLinkParams) (*models.Link, error) {
 			if params.ID != linkID {
 				t.Errorf("expected link ID %s, got %s", linkID, params.ID)
 			}
-			link := makeLink(linkID, userID, uuid.New(), "abc123")
+			link := makeLink(linkID, userID, workspaceID, "abc123")
 			link.URL = "https://updated.com"
 			return link, nil
 		},
@@ -418,7 +419,7 @@ func TestUpdateLink_ValidUpdate(t *testing.T) {
 		Title: strPtr("Updated Title"),
 	}
 
-	link, err := svc.UpdateLink(context.Background(), linkID, userID, input)
+	link, err := svc.UpdateLink(context.Background(), linkID, workspaceID, input)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -427,14 +428,15 @@ func TestUpdateLink_ValidUpdate(t *testing.T) {
 	}
 }
 
-func TestUpdateLink_OwnershipCheck(t *testing.T) {
+func TestUpdateLink_WorkspaceCheck(t *testing.T) {
 	linkID := uuid.New()
 	ownerID := uuid.New()
-	otherUserID := uuid.New()
+	linkWorkspaceID := uuid.New()
+	otherWorkspaceID := uuid.New()
 
 	repo := &mockLinkRepo{
 		getByIDFn: func(_ context.Context, _ uuid.UUID) (*models.Link, error) {
-			return makeLink(linkID, ownerID, uuid.New(), "abc123"), nil
+			return makeLink(linkID, ownerID, linkWorkspaceID, "abc123"), nil
 		},
 	}
 
@@ -442,9 +444,9 @@ func TestUpdateLink_OwnershipCheck(t *testing.T) {
 
 	input := models.UpdateLinkInput{Title: strPtr("New Title")}
 
-	_, err := svc.UpdateLink(context.Background(), linkID, otherUserID, input)
+	_, err := svc.UpdateLink(context.Background(), linkID, otherWorkspaceID, input)
 	if err == nil {
-		t.Fatal("expected forbidden error for non-owner")
+		t.Fatal("expected forbidden error for wrong workspace")
 	}
 
 	var appErr *httputil.AppError
@@ -456,10 +458,11 @@ func TestUpdateLink_OwnershipCheck(t *testing.T) {
 func TestUpdateLink_InvalidURL(t *testing.T) {
 	linkID := uuid.New()
 	userID := uuid.New()
+	workspaceID := uuid.New()
 
 	repo := &mockLinkRepo{
 		getByIDFn: func(_ context.Context, _ uuid.UUID) (*models.Link, error) {
-			return makeLink(linkID, userID, uuid.New(), "abc123"), nil
+			return makeLink(linkID, userID, workspaceID, "abc123"), nil
 		},
 	}
 
@@ -467,7 +470,7 @@ func TestUpdateLink_InvalidURL(t *testing.T) {
 
 	input := models.UpdateLinkInput{URL: strPtr("")}
 
-	_, err := svc.UpdateLink(context.Background(), linkID, userID, input)
+	_, err := svc.UpdateLink(context.Background(), linkID, workspaceID, input)
 	if err == nil {
 		t.Fatal("expected error for empty URL")
 	}
@@ -476,10 +479,11 @@ func TestUpdateLink_InvalidURL(t *testing.T) {
 func TestUpdateLink_ClearPassword(t *testing.T) {
 	linkID := uuid.New()
 	userID := uuid.New()
+	workspaceID := uuid.New()
 
 	repo := &mockLinkRepo{
 		getByIDFn: func(_ context.Context, _ uuid.UUID) (*models.Link, error) {
-			link := makeLink(linkID, userID, uuid.New(), "abc123")
+			link := makeLink(linkID, userID, workspaceID, "abc123")
 			hash := "hashed_password"
 			link.PasswordHash = &hash
 			return link, nil
@@ -488,7 +492,7 @@ func TestUpdateLink_ClearPassword(t *testing.T) {
 			if !params.PasswordHash.Valid || params.PasswordHash.String != "" {
 				t.Error("expected password hash to be cleared (empty valid string)")
 			}
-			return makeLink(linkID, userID, uuid.New(), "abc123"), nil
+			return makeLink(linkID, userID, workspaceID, "abc123"), nil
 		},
 	}
 
@@ -497,7 +501,7 @@ func TestUpdateLink_ClearPassword(t *testing.T) {
 	emptyPass := ""
 	input := models.UpdateLinkInput{Password: &emptyPass}
 
-	_, err := svc.UpdateLink(context.Background(), linkID, userID, input)
+	_, err := svc.UpdateLink(context.Background(), linkID, workspaceID, input)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -506,11 +510,12 @@ func TestUpdateLink_ClearPassword(t *testing.T) {
 func TestDeleteLink_Valid(t *testing.T) {
 	linkID := uuid.New()
 	userID := uuid.New()
+	workspaceID := uuid.New()
 	deleted := false
 
 	repo := &mockLinkRepo{
 		getByIDFn: func(_ context.Context, _ uuid.UUID) (*models.Link, error) {
-			return makeLink(linkID, userID, uuid.New(), "abc123"), nil
+			return makeLink(linkID, userID, workspaceID, "abc123"), nil
 		},
 		softDeleteFn: func(_ context.Context, id uuid.UUID) error {
 			deleted = true
@@ -523,7 +528,7 @@ func TestDeleteLink_Valid(t *testing.T) {
 
 	svc := newTestService(repo, &mockClickRepo{}, &mockCodeGen{})
 
-	err := svc.DeleteLink(context.Background(), linkID, userID)
+	err := svc.DeleteLink(context.Background(), linkID, workspaceID)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -532,20 +537,21 @@ func TestDeleteLink_Valid(t *testing.T) {
 	}
 }
 
-func TestDeleteLink_OwnershipCheck(t *testing.T) {
+func TestDeleteLink_WorkspaceCheck(t *testing.T) {
 	linkID := uuid.New()
 	ownerID := uuid.New()
-	otherUserID := uuid.New()
+	linkWorkspaceID := uuid.New()
+	otherWorkspaceID := uuid.New()
 
 	repo := &mockLinkRepo{
 		getByIDFn: func(_ context.Context, _ uuid.UUID) (*models.Link, error) {
-			return makeLink(linkID, ownerID, uuid.New(), "abc123"), nil
+			return makeLink(linkID, ownerID, linkWorkspaceID, "abc123"), nil
 		},
 	}
 
 	svc := newTestService(repo, &mockClickRepo{}, &mockCodeGen{})
 
-	err := svc.DeleteLink(context.Background(), linkID, otherUserID)
+	err := svc.DeleteLink(context.Background(), linkID, otherWorkspaceID)
 	if err == nil {
 		t.Fatal("expected forbidden error for non-owner")
 	}

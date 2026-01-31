@@ -131,6 +131,19 @@ func (q *Queries) ListWorkspacesForUser(ctx context.Context, userID uuid.UUID) (
 	return items, nil
 }
 
+const getWorkspaceCountForUser = `-- name: GetWorkspaceCountForUser :one
+SELECT COUNT(*) FROM workspaces w
+JOIN workspace_members wm ON wm.workspace_id = w.id
+WHERE wm.user_id = $1 AND wm.role = 'owner' AND w.deleted_at IS NULL
+`
+
+func (q *Queries) GetWorkspaceCountForUser(ctx context.Context, userID uuid.UUID) (int64, error) {
+	row := q.db.QueryRow(ctx, getWorkspaceCountForUser, userID)
+	var count int64
+	err := row.Scan(&count)
+	return count, err
+}
+
 const softDeleteWorkspace = `-- name: SoftDeleteWorkspace :exec
 UPDATE workspaces
 SET deleted_at = NOW(), updated_at = NOW()
@@ -170,6 +183,35 @@ func (q *Queries) UpdateWorkspace(ctx context.Context, arg UpdateWorkspaceParams
 		arg.Plan,
 		arg.Settings,
 	)
+	var i Workspace
+	err := row.Scan(
+		&i.ID,
+		&i.Name,
+		&i.Slug,
+		&i.OwnerID,
+		&i.Plan,
+		&i.Settings,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+		&i.DeletedAt,
+	)
+	return i, err
+}
+
+const updateWorkspaceOwner = `-- name: UpdateWorkspaceOwner :one
+UPDATE workspaces
+SET owner_id = $2, updated_at = NOW()
+WHERE id = $1 AND deleted_at IS NULL
+RETURNING id, name, slug, owner_id, plan, settings, created_at, updated_at, deleted_at
+`
+
+type UpdateWorkspaceOwnerParams struct {
+	ID      uuid.UUID `json:"id"`
+	OwnerID uuid.UUID `json:"owner_id"`
+}
+
+func (q *Queries) UpdateWorkspaceOwner(ctx context.Context, arg UpdateWorkspaceOwnerParams) (Workspace, error) {
+	row := q.db.QueryRow(ctx, updateWorkspaceOwner, arg.ID, arg.OwnerID)
 	var i Workspace
 	err := row.Scan(
 		&i.ID,

@@ -32,3 +32,14 @@ RETURNING *;
 UPDATE workspaces
 SET deleted_at = NOW(), updated_at = NOW()
 WHERE id = $1 AND deleted_at IS NULL;
+
+-- name: GetWorkspaceCountForUser :one
+SELECT COUNT(*) FROM workspaces w
+JOIN workspace_members wm ON wm.workspace_id = w.id
+WHERE wm.user_id = $1 AND wm.role = 'owner' AND w.deleted_at IS NULL;
+
+-- name: UpdateWorkspaceOwner :one
+UPDATE workspaces
+SET owner_id = $2, updated_at = NOW()
+WHERE id = $1 AND deleted_at IS NULL
+RETURNING *;

@@ -1,17 +1,30 @@
 import { Outlet, Link, useLocation } from "react-router-dom"
 import { useLogout } from "@/hooks/useAuth"
+import { useWorkspaces } from "@/hooks/useWorkspace"
 import { useAuthStore } from "@/stores/authStore"
+import { useWorkspaceStore } from "@/stores/workspaceStore"
 import { Button } from "@/components/ui/button"
-
-const navItems = [
-  { label: "Dashboard", href: "/" },
-  { label: "Links", href: "/links" },
-]
+import WorkspaceSwitcher from "@/components/features/workspaces/WorkspaceSwitcher"
 
 export default function AppLayout() {
   const { user } = useAuthStore()
+  const { canManageMembers } = useWorkspaceStore()
   const logout = useLogout()
   const location = useLocation()
+
+  // Fetch workspaces on mount (syncs to store)
+  useWorkspaces()
+
+  const navItems = [
+    { label: "Dashboard", href: "/" },
+    { label: "Links", href: "/links" },
+    ...(canManageMembers()
+      ? [
+          { label: "Team", href: "/team" },
+          { label: "Settings", href: "/settings" },
+        ]
+      : []),
+  ]
 
   return (
     <div className="flex min-h-screen flex-col">
@@ -19,6 +32,7 @@ export default function AppLayout() {
         <div className="mx-auto flex h-14 max-w-7xl items-center justify-between px-4">
           <div className="flex items-center gap-6">
             <h1 className="text-lg font-semibold">Linkrift</h1>
+            <WorkspaceSwitcher />
             <nav className="flex items-center gap-1">
               {navItems.map((item) => (
                 <Link

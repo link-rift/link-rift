@@ -30,6 +30,7 @@ type Querier interface {
 	GetClicksByLinkID(ctx context.Context, arg GetClicksByLinkIDParams) ([]Click, error)
 	GetDomainByDomain(ctx context.Context, domain string) (Domain, error)
 	GetDomainByID(ctx context.Context, id uuid.UUID) (Domain, error)
+	GetMemberCountForWorkspace(ctx context.Context, workspaceID uuid.UUID) (int64, error)
 	GetLinkByID(ctx context.Context, id uuid.UUID) (Link, error)
 	GetLinkByShortCode(ctx context.Context, shortCode string) (Link, error)
 	GetLinkByURL(ctx context.Context, arg GetLinkByURLParams) (Link, error)
@@ -40,6 +41,7 @@ type Querier interface {
 	GetSessionByToken(ctx context.Context, refreshTokenHash string) (Session, error)
 	GetUserByEmail(ctx context.Context, email string) (User, error)
 	GetUserByID(ctx context.Context, id uuid.UUID) (User, error)
+	GetWorkspaceCountForUser(ctx context.Context, userID uuid.UUID) (int64, error)
 	GetWorkspaceByID(ctx context.Context, id uuid.UUID) (Workspace, error)
 	GetWorkspaceBySlug(ctx context.Context, slug string) (Workspace, error)
 	GetWorkspaceMember(ctx context.Context, arg GetWorkspaceMemberParams) (WorkspaceMember, error)
@@ -71,6 +73,7 @@ type Querier interface {
 	UpdateUser(ctx context.Context, arg UpdateUserParams) (User, error)
 	UpdateUserPassword(ctx context.Context, arg UpdateUserPasswordParams) error
 	UpdateWorkspace(ctx context.Context, arg UpdateWorkspaceParams) (Workspace, error)
+	UpdateWorkspaceOwner(ctx context.Context, arg UpdateWorkspaceOwnerParams) (Workspace, error)
 }
 
 var _ Querier = (*Queries)(nil)

@@ -25,8 +25,8 @@ const maxShortCodeRetries = 5
 
 type LinkService interface {
 	CreateLink(ctx context.Context, userID, workspaceID uuid.UUID, input models.CreateLinkInput) (*models.Link, error)
-	UpdateLink(ctx context.Context, id, userID uuid.UUID, input models.UpdateLinkInput) (*models.Link, error)
-	DeleteLink(ctx context.Context, id, userID uuid.UUID) error
+	UpdateLink(ctx context.Context, id, workspaceID uuid.UUID, input models.UpdateLinkInput) (*models.Link, error)
+	DeleteLink(ctx context.Context, id, workspaceID uuid.UUID) error
 	GetLink(ctx context.Context, id uuid.UUID) (*models.Link, error)
 	ListLinks(ctx context.Context, workspaceID uuid.UUID, filter models.LinkFilter, pagination models.Pagination) (*models.LinkListResult, error)
 	BulkCreateLinks(ctx context.Context, userID, workspaceID uuid.UUID, input models.BulkCreateLinkInput) ([]*models.Link, error)
@@ -140,14 +140,14 @@ func (s *linkService) CreateLink(ctx context.Context, userID, workspaceID uuid.U
 	return link, nil
 }
 
-func (s *linkService) UpdateLink(ctx context.Context, id, userID uuid.UUID, input models.UpdateLinkInput) (*models.Link, error) {
+func (s *linkService) UpdateLink(ctx context.Context, id, workspaceID uuid.UUID, input models.UpdateLinkInput) (*models.Link, error) {
 	existing, err := s.linkRepo.GetByID(ctx, id)
 	if err != nil {
 		return nil, err
 	}
 
-	if existing.UserID != userID {
-		return nil, httputil.Forbidden("you do not own this link")
+	if existing.WorkspaceID != workspaceID {
+		return nil, httputil.Forbidden("link does not belong to this workspace")
 	}
 
 	// If URL is being updated, validate it
@@ -208,14 +208,14 @@ func (s *linkService) UpdateLink(ctx context.Context, id, userID uuid.UUID, inpu
 	return link, nil
 }
 
-func (s *linkService) DeleteLink(ctx context.Context, id, userID uuid.UUID) error {
+func (s *linkService) DeleteLink(ctx context.Context, id, workspaceID uuid.UUID) error {
 	existing, err := s.linkRepo.GetByID(ctx, id)
 	if err != nil {
 		return err
 	}
 
-	if existing.UserID != userID {
-		return httputil.Forbidden("you do not own this link")
+	if existing.WorkspaceID != workspaceID {
+		return httputil.Forbidden("link does not belong to this workspace")
 	}
 
 	return s.linkRepo.SoftDelete(ctx, id)

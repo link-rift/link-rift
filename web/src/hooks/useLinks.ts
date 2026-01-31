@@ -1,4 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
+import { useWorkspaceStore } from "@/stores/workspaceStore"
 import * as linkService from "@/services/links"
 import type { CreateLinkRequest, UpdateLinkRequest } from "@/types/link"
 
@@ -8,18 +9,25 @@ export function useLinks(params?: {
   limit?: number
   offset?: number
 }) {
+  const { currentWorkspace } = useWorkspaceStore()
+  const wsId = currentWorkspace?.id
+
   return useQuery({
-    queryKey: ["links", params],
+    queryKey: ["links", wsId, params],
     queryFn: () => linkService.getLinks(params),
     staleTime: 30 * 1000,
+    enabled: !!wsId,
   })
 }
 
 export function useLink(id: string) {
+  const { currentWorkspace } = useWorkspaceStore()
+  const wsId = currentWorkspace?.id
+
   return useQuery({
-    queryKey: ["links", id],
+    queryKey: ["links", wsId, id],
     queryFn: () => linkService.getLink(id),
-    enabled: !!id,
+    enabled: !!id && !!wsId,
   })
 }
 
@@ -70,10 +78,13 @@ export function useBulkCreateLinks() {
 }
 
 export function useLinkStats(id: string) {
+  const { currentWorkspace } = useWorkspaceStore()
+  const wsId = currentWorkspace?.id
+
   return useQuery({
-    queryKey: ["links", id, "stats"],
+    queryKey: ["links", wsId, id, "stats"],
     queryFn: () => linkService.getLinkStats(id),
-    enabled: !!id,
+    enabled: !!id && !!wsId,
     staleTime: 60 * 1000,
   })
 }

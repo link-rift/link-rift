@@ -1,4 +1,5 @@
 import { apiRequest } from "./api"
+import { useWorkspaceStore } from "@/stores/workspaceStore"
 import type {
   Link,
   CreateLinkRequest,
@@ -7,14 +8,18 @@ import type {
   LinkQuickStats,
 } from "@/types/link"
 
-const WORKSPACE_ID = "00000000-0000-0000-0000-000000000000" // TODO: replace with actual workspace from context
+function getWorkspaceId(): string {
+  const ws = useWorkspaceStore.getState().currentWorkspace
+  if (!ws) throw new Error("No workspace selected")
+  return ws.id
+}
 
-function wsParam() {
-  return `workspace_id=${WORKSPACE_ID}`
+function wsBase(): string {
+  return `/workspaces/${getWorkspaceId()}/links`
 }
 
 export async function createLink(data: CreateLinkRequest): Promise<Link> {
-  const res = await apiRequest<Link>(`/links?${wsParam()}`, {
+  const res = await apiRequest<Link>(wsBase(), {
     method: "POST",
     body: JSON.stringify(data),
   })
@@ -31,13 +36,14 @@ export async function getLinks(params?: {
   offset?: number
 }): Promise<{ links: Link[]; total: number }> {
   const searchParams = new URLSearchParams()
-  searchParams.set("workspace_id", WORKSPACE_ID)
   if (params?.search) searchParams.set("search", params.search)
   if (params?.is_active !== undefined) searchParams.set("is_active", String(params.is_active))
   if (params?.limit) searchParams.set("limit", String(params.limit))
   if (params?.offset) searchParams.set("offset", String(params.offset))
 
-  const res = await apiRequest<Link[]>(`/links?${searchParams.toString()}`)
+  const qs = searchParams.toString()
+  const url = qs ? `${wsBase()}?${qs}` : wsBase()
+  const res = await apiRequest<Link[]>(url)
   if (!res.success || !res.data) {
     throw new Error(res.error?.message || "Failed to fetch links")
   }
@@ -48,7 +54,7 @@ export async function getLinks(params?: {
 }
 
 export async function getLink(id: string): Promise<Link> {
-  const res = await apiRequest<Link>(`/links/${id}`)
+  const res = await apiRequest<Link>(`${wsBase()}/${id}`)
   if (!res.success || !res.data) {
     throw new Error(res.error?.message || "Failed to fetch link")
   }
@@ -56,7 +62,7 @@ export async function getLink(id: string): Promise<Link> {
 }
 
 export async function updateLink(id: string, data: UpdateLinkRequest): Promise<Link> {
-  const res = await apiRequest<Link>(`/links/${id}`, {
+  const res = await apiRequest<Link>(`${wsBase()}/${id}`, {
     method: "PUT",
     body: JSON.stringify(data),
   })
@@ -67,7 +73,7 @@ export async function updateLink(id: string, data: UpdateLinkRequest): Promise<L
 }
 
 export async function deleteLink(id: string): Promise<void> {
-  const res = await apiRequest<{ message: string }>(`/links/${id}`, {
+  const res = await apiRequest<{ message: string }>(`${wsBase()}/${id}`, {
     method: "DELETE",
   })
   if (!res.success) {
@@ -76,7 +82,7 @@ export async function deleteLink(id: string): Promise<void> {
 }
 
 export async function bulkCreateLinks(data: BulkCreateRequest): Promise<Link[]> {
-  const res = await apiRequest<Link[]>(`/links/bulk?${wsParam()}`, {
+  const res = await apiRequest<Link[]>(`${wsBase()}/bulk`, {
     method: "POST",
     body: JSON.stringify(data),
   })
@@ -87,7 +93,7 @@ export async function bulkCreateLinks(data: BulkCreateRequest): Promise<Link[]> 
 }
 
 export async function getLinkStats(id: string): Promise<LinkQuickStats> {
-  const res = await apiRequest<LinkQuickStats>(`/links/${id}/stats`)
+  const res = await apiRequest<LinkQuickStats>(`${wsBase()}/${id}/stats`)
   if (!res.success || !res.data) {
     throw new Error(res.error?.message || "Failed to fetch link stats")
   }

@@ -16,6 +16,7 @@ import (
 	"github.com/link-rift/link-rift/internal/handler"
 	"github.com/link-rift/link-rift/internal/license"
 	"github.com/link-rift/link-rift/internal/middleware"
+	"github.com/link-rift/link-rift/internal/models"
 	"github.com/link-rift/link-rift/internal/repository"
 	"github.com/link-rift/link-rift/internal/repository/sqlc"
 	"github.com/link-rift/link-rift/internal/service"
@@ -95,6 +96,8 @@ func main() {
 	resetRepo := repository.NewPasswordResetRepository(queries, logger)
 	linkRepo := repository.NewLinkRepository(queries, logger)
 	clickRepo := repository.NewClickRepository(queries, logger)
+	workspaceRepo := repository.NewWorkspaceRepository(queries, logger)
+	memberRepo := repository.NewWorkspaceMemberRepository(queries, logger)
 
 	// 9. Create services
 	authService := service.NewAuthService(
@@ -103,11 +106,13 @@ func main() {
 		cfg, logger,
 	)
 	linkService := service.NewLinkService(linkRepo, clickRepo, pgDB.Pool(), redisDB.Client(), cfg, logger)
+	workspaceService := service.NewWorkspaceService(workspaceRepo, memberRepo, userRepo, licManager, pgDB.Pool(), logger)
 
 	// 10. Create handlers
 	authHandler := handler.NewAuthHandler(authService, logger)
 	licenseHandler := handler.NewLicenseHandler(licManager, logger)
 	linkHandler := handler.NewLinkHandler(linkService, logger)
+	workspaceHandler := handler.NewWorkspaceHandler(workspaceService, logger)
 
 	// 11. Create Gin router
 	if cfg.App.Env == "production" {
@@ -138,7 +143,15 @@ func main() {
 	authMw := middleware.RequireAuth(tokenMaker, userRepo)
 	authHandler.RegisterRoutes(v1, authMw)
 	licenseHandler.RegisterRoutes(v1, authMw)
-	linkHandler.RegisterRoutes(v1, authMw)
+
+	// Workspace routes
+	wsAccessMw := middleware.RequireWorkspaceAccess(workspaceRepo, memberRepo)
+	workspaceHandler.RegisterRoutes(v1, authMw, wsAccessMw)
+
+	// Link routes now live under /api/v1/workspaces/:workspaceId/links
+	wsScoped := v1.Group("/workspaces/:workspaceId", authMw, wsAccessMw)
+	editorMw := middleware.RequireWorkspaceRole(models.RoleEditor)
+	linkHandler.RegisterRoutes(wsScoped, editorMw)
 
 	// 14. Start server with graceful shutdown
 	srv := &http.Server{

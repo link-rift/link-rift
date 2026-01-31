@@ -23,3 +23,6 @@ RETURNING *;
 -- name: RemoveWorkspaceMember :exec
 DELETE FROM workspace_members
 WHERE workspace_id = $1 AND user_id = $2;
+
+-- name: GetMemberCountForWorkspace :one
+SELECT COUNT(*) FROM workspace_members WHERE workspace_id = $1;

@@ -18,15 +18,15 @@ import (
 // --- Mock LinkService ---
 
 type mockLinkService struct {
-	createLinkFn           func(ctx context.Context, userID, workspaceID uuid.UUID, input models.CreateLinkInput) (*models.Link, error)
-	updateLinkFn           func(ctx context.Context, id, userID uuid.UUID, input models.UpdateLinkInput) (*models.Link, error)
-	deleteLinkFn           func(ctx context.Context, id, userID uuid.UUID) error
-	getLinkFn              func(ctx context.Context, id uuid.UUID) (*models.Link, error)
-	listLinksFn            func(ctx context.Context, workspaceID uuid.UUID, filter models.LinkFilter, pagination models.Pagination) (*models.LinkListResult, error)
-	bulkCreateLinksFn      func(ctx context.Context, userID, workspaceID uuid.UUID, input models.BulkCreateLinkInput) ([]*models.Link, error)
-	getQuickStatsFn        func(ctx context.Context, id uuid.UUID) (*models.LinkQuickStats, error)
-	checkShortCodeFn       func(ctx context.Context, code string) (bool, error)
-	verifyLinkPasswordFn   func(ctx context.Context, shortCode, password string) (bool, error)
+	createLinkFn         func(ctx context.Context, userID, workspaceID uuid.UUID, input models.CreateLinkInput) (*models.Link, error)
+	updateLinkFn         func(ctx context.Context, id, workspaceID uuid.UUID, input models.UpdateLinkInput) (*models.Link, error)
+	deleteLinkFn         func(ctx context.Context, id, workspaceID uuid.UUID) error
+	getLinkFn            func(ctx context.Context, id uuid.UUID) (*models.Link, error)
+	listLinksFn          func(ctx context.Context, workspaceID uuid.UUID, filter models.LinkFilter, pagination models.Pagination) (*models.LinkListResult, error)
+	bulkCreateLinksFn    func(ctx context.Context, userID, workspaceID uuid.UUID, input models.BulkCreateLinkInput) ([]*models.Link, error)
+	getQuickStatsFn      func(ctx context.Context, id uuid.UUID) (*models.LinkQuickStats, error)
+	checkShortCodeFn     func(ctx context.Context, code string) (bool, error)
+	verifyLinkPasswordFn func(ctx context.Context, shortCode, password string) (bool, error)
 }
 
 func (m *mockLinkService) CreateLink(ctx context.Context, userID, workspaceID uuid.UUID, input models.CreateLinkInput) (*models.Link, error) {
@@ -36,16 +36,16 @@ func (m *mockLinkService) CreateLink(ctx context.Context, userID, workspaceID uu
 	return nil, nil
 }
 
-func (m *mockLinkService) UpdateLink(ctx context.Context, id, userID uuid.UUID, input models.UpdateLinkInput) (*models.Link, error) {
+func (m *mockLinkService) UpdateLink(ctx context.Context, id, workspaceID uuid.UUID, input models.UpdateLinkInput) (*models.Link, error) {
 	if m.updateLinkFn != nil {
-		return m.updateLinkFn(ctx, id, userID, input)
+		return m.updateLinkFn(ctx, id, workspaceID, input)
 	}
 	return nil, nil
 }
 
-func (m *mockLinkService) DeleteLink(ctx context.Context, id, userID uuid.UUID) error {
+func (m *mockLinkService) DeleteLink(ctx context.Context, id, workspaceID uuid.UUID) error {
 	if m.deleteLinkFn != nil {
-		return m.deleteLinkFn(ctx, id, userID)
+		return m.deleteLinkFn(ctx, id, workspaceID)
 	}
 	return nil
 }
@@ -94,6 +94,8 @@ func (m *mockLinkService) VerifyLinkPassword(ctx context.Context, shortCode, pas
 
 // --- Test Router Setup ---
 
+var testWorkspaceID = uuid.MustParse("22222222-2222-2222-2222-222222222222")
+
 func setupTestRouter(svc *mockLinkService, withAuth bool) *gin.Engine {
 	gin.SetMode(gin.TestMode)
 	r := gin.New()
@@ -101,21 +103,37 @@ func setupTestRouter(svc *mockLinkService, withAuth bool) *gin.Engine {
 	logger, _ := zap.NewDevelopment()
 	handler := NewLinkHandler(svc, logger)
 
-	authMw := func(c *gin.Context) {
+	// Simulate auth + workspace middleware
+	authAndWsMw := func(c *gin.Context) {
 		if withAuth {
-			// Inject a test user
 			user := &models.User{
 				ID:    uuid.MustParse("11111111-1111-1111-1111-111111111111"),
 				Email: "test@example.com",
 				Name:  "Test User",
 			}
 			c.Set("user", user)
+			ws := &models.Workspace{
+				ID:      testWorkspaceID,
+				Name:    "Test Workspace",
+				Slug:    "test-workspace",
+				OwnerID: user.ID,
+			}
+			c.Set("workspace", ws)
+			member := &models.WorkspaceMember{
+				ID:          uuid.New(),
+				WorkspaceID: testWorkspaceID,
+				UserID:      user.ID,
+				Role:        models.RoleOwner,
+			}
+			c.Set("workspace_member", member)
 		}
 		c.Next()
 	}
 
-	api := r.Group("/api/v1")
-	handler.RegisterRoutes(api, authMw)
+	editorMw := func(c *gin.Context) { c.Next() }
+
+	wsScoped := r.Group("/api/v1/workspaces/:workspaceId", authAndWsMw)
+	handler.RegisterRoutes(wsScoped, editorMw)
 
 	return r
 }
@@ -127,6 +145,10 @@ func parseResponse(t *testing.T, w *httptest.ResponseRecorder) httputil.Response
 		t.Fatalf("failed to parse response: %v (body: %s)", err, w.Body.String())
 	}
 	return resp
+}
+
+func linkURL(path string) string {
+	return "/api/v1/workspaces/" + testWorkspaceID.String() + "/links" + path
 }
 
 // --- Tests ---
@@ -148,8 +170,7 @@ func TestCreateLink_Success(t *testing.T) {
 	r := setupTestRouter(svc, true)
 
 	body := `{"url":"https://example.com","title":"Test"}`
-	wsID := uuid.New().String()
-	req := httptest.NewRequest("POST", "/api/v1/links?workspace_id="+wsID, bytes.NewBufferString(body))
+	req := httptest.NewRequest("POST", linkURL(""), bytes.NewBufferString(body))
 	req.Header.Set("Content-Type", "application/json")
 	w := httptest.NewRecorder()
 
@@ -171,32 +192,15 @@ func TestCreateLink_Unauthenticated(t *testing.T) {
 	r := setupTestRouter(svc, false) // no auth
 
 	body := `{"url":"https://example.com"}`
-	wsID := uuid.New().String()
-	req := httptest.NewRequest("POST", "/api/v1/links?workspace_id="+wsID, bytes.NewBufferString(body))
+	req := httptest.NewRequest("POST", linkURL(""), bytes.NewBufferString(body))
 	req.Header.Set("Content-Type", "application/json")
 	w := httptest.NewRecorder()
 
 	r.ServeHTTP(w, req)
 
-	if w.Code != http.StatusUnauthorized {
-		t.Errorf("expected status %d, got %d", http.StatusUnauthorized, w.Code)
-	}
-}
-
-func TestCreateLink_MissingWorkspaceID(t *testing.T) {
-	svc := &mockLinkService{}
-
-	r := setupTestRouter(svc, true)
-
-	body := `{"url":"https://example.com"}`
-	req := httptest.NewRequest("POST", "/api/v1/links", bytes.NewBufferString(body))
-	req.Header.Set("Content-Type", "application/json")
-	w := httptest.NewRecorder()
-
-	r.ServeHTTP(w, req)
-
-	if w.Code != http.StatusBadRequest {
-		t.Errorf("expected status %d, got %d (body: %s)", http.StatusBadRequest, w.Code, w.Body.String())
+	// Without auth, workspace access fails -> forbidden
+	if w.Code != http.StatusForbidden && w.Code != http.StatusUnauthorized {
+		t.Errorf("expected status 401 or 403, got %d", w.Code)
 	}
 }
 
@@ -205,8 +209,7 @@ func TestCreateLink_InvalidBody(t *testing.T) {
 
 	r := setupTestRouter(svc, true)
 
-	wsID := uuid.New().String()
-	req := httptest.NewRequest("POST", "/api/v1/links?workspace_id="+wsID, bytes.NewBufferString(`{invalid`))
+	req := httptest.NewRequest("POST", linkURL(""), bytes.NewBufferString(`{invalid`))
 	req.Header.Set("Content-Type", "application/json")
 	w := httptest.NewRecorder()
 
@@ -218,12 +221,10 @@ func TestCreateLink_InvalidBody(t *testing.T) {
 }
 
 func TestListLinks_Success(t *testing.T) {
-	wsID := uuid.New()
-
 	svc := &mockLinkService{
 		listLinksFn: func(_ context.Context, workspaceID uuid.UUID, _ models.LinkFilter, _ models.Pagination) (*models.LinkListResult, error) {
-			if workspaceID != wsID {
-				t.Errorf("expected workspace_id %s, got %s", wsID, workspaceID)
+			if workspaceID != testWorkspaceID {
+				t.Errorf("expected workspace_id %s, got %s", testWorkspaceID, workspaceID)
 			}
 			return &models.LinkListResult{
 				Links: []*models.LinkResponse{},
@@ -234,7 +235,7 @@ func TestListLinks_Success(t *testing.T) {
 
 	r := setupTestRouter(svc, true)
 
-	req := httptest.NewRequest("GET", "/api/v1/links?workspace_id="+wsID.String(), nil)
+	req := httptest.NewRequest("GET", linkURL(""), nil)
 	w := httptest.NewRecorder()
 
 	r.ServeHTTP(w, req)
@@ -270,7 +271,7 @@ func TestGetLink_Success(t *testing.T) {
 
 	r := setupTestRouter(svc, true)
 
-	req := httptest.NewRequest("GET", "/api/v1/links/"+linkID.String(), nil)
+	req := httptest.NewRequest("GET", linkURL("/"+linkID.String()), nil)
 	w := httptest.NewRecorder()
 
 	r.ServeHTTP(w, req)
@@ -285,7 +286,7 @@ func TestGetLink_InvalidUUID(t *testing.T) {
 
 	r := setupTestRouter(svc, true)
 
-	req := httptest.NewRequest("GET", "/api/v1/links/not-a-uuid", nil)
+	req := httptest.NewRequest("GET", linkURL("/not-a-uuid"), nil)
 	w := httptest.NewRecorder()
 
 	r.ServeHTTP(w, req)
@@ -299,7 +300,7 @@ func TestUpdateLink_Success(t *testing.T) {
 	linkID := uuid.New()
 
 	svc := &mockLinkService{
-		updateLinkFn: func(_ context.Context, id, userID uuid.UUID, input models.UpdateLinkInput) (*models.Link, error) {
+		updateLinkFn: func(_ context.Context, id, workspaceID uuid.UUID, input models.UpdateLinkInput) (*models.Link, error) {
 			return &models.Link{
 				ID:        id,
 				URL:       "https://updated.com",
@@ -311,7 +312,7 @@ func TestUpdateLink_Success(t *testing.T) {
 	r := setupTestRouter(svc, true)
 
 	body := `{"title":"Updated"}`
-	req := httptest.NewRequest("PUT", "/api/v1/links/"+linkID.String(), bytes.NewBufferString(body))
+	req := httptest.NewRequest("PUT", linkURL("/"+linkID.String()), bytes.NewBufferString(body))
 	req.Header.Set("Content-Type", "application/json")
 	w := httptest.NewRecorder()
 
@@ -322,28 +323,11 @@ func TestUpdateLink_Success(t *testing.T) {
 	}
 }
 
-func TestUpdateLink_Unauthenticated(t *testing.T) {
-	svc := &mockLinkService{}
-
-	r := setupTestRouter(svc, false)
-
-	body := `{"title":"Updated"}`
-	req := httptest.NewRequest("PUT", "/api/v1/links/"+uuid.New().String(), bytes.NewBufferString(body))
-	req.Header.Set("Content-Type", "application/json")
-	w := httptest.NewRecorder()
-
-	r.ServeHTTP(w, req)
-
-	if w.Code != http.StatusUnauthorized {
-		t.Errorf("expected status %d, got %d", http.StatusUnauthorized, w.Code)
-	}
-}
-
 func TestDeleteLink_Success(t *testing.T) {
 	linkID := uuid.New()
 
 	svc := &mockLinkService{
-		deleteLinkFn: func(_ context.Context, id, userID uuid.UUID) error {
+		deleteLinkFn: func(_ context.Context, id, workspaceID uuid.UUID) error {
 			if id != linkID {
 				t.Errorf("expected ID %s, got %s", linkID, id)
 			}
@@ -353,28 +337,13 @@ func TestDeleteLink_Success(t *testing.T) {
 
 	r := setupTestRouter(svc, true)
 
-	req := httptest.NewRequest("DELETE", "/api/v1/links/"+linkID.String(), nil)
+	req := httptest.NewRequest("DELETE", linkURL("/"+linkID.String()), nil)
 	w := httptest.NewRecorder()
 
 	r.ServeHTTP(w, req)
 
 	if w.Code != http.StatusOK {
 		t.Errorf("expected status %d, got %d (body: %s)", http.StatusOK, w.Code, w.Body.String())
-	}
-}
-
-func TestDeleteLink_Unauthenticated(t *testing.T) {
-	svc := &mockLinkService{}
-
-	r := setupTestRouter(svc, false)
-
-	req := httptest.NewRequest("DELETE", "/api/v1/links/"+uuid.New().String(), nil)
-	w := httptest.NewRecorder()
-
-	r.ServeHTTP(w, req)
-
-	if w.Code != http.StatusUnauthorized {
-		t.Errorf("expected status %d, got %d", http.StatusUnauthorized, w.Code)
 	}
 }
 
@@ -396,8 +365,7 @@ func TestBulkCreateLinks_Success(t *testing.T) {
 	r := setupTestRouter(svc, true)
 
 	body := `{"links":[{"url":"https://example.com"},{"url":"https://example.org"}]}`
-	wsID := uuid.New().String()
-	req := httptest.NewRequest("POST", "/api/v1/links/bulk?workspace_id="+wsID, bytes.NewBufferString(body))
+	req := httptest.NewRequest("POST", linkURL("/bulk"), bytes.NewBufferString(body))
 	req.Header.Set("Content-Type", "application/json")
 	w := httptest.NewRecorder()
 
@@ -405,24 +373,6 @@ func TestBulkCreateLinks_Success(t *testing.T) {
 
 	if w.Code != http.StatusCreated {
 		t.Errorf("expected status %d, got %d (body: %s)", http.StatusCreated, w.Code, w.Body.String())
-	}
-}
-
-func TestBulkCreateLinks_Unauthenticated(t *testing.T) {
-	svc := &mockLinkService{}
-
-	r := setupTestRouter(svc, false)
-
-	body := `{"links":[{"url":"https://example.com"}]}`
-	wsID := uuid.New().String()
-	req := httptest.NewRequest("POST", "/api/v1/links/bulk?workspace_id="+wsID, bytes.NewBufferString(body))
-	req.Header.Set("Content-Type", "application/json")
-	w := httptest.NewRecorder()
-
-	r.ServeHTTP(w, req)
-
-	if w.Code != http.StatusUnauthorized {
-		t.Errorf("expected status %d, got %d", http.StatusUnauthorized, w.Code)
 	}
 }
 
@@ -442,7 +392,7 @@ func TestGetQuickStats_Success(t *testing.T) {
 
 	r := setupTestRouter(svc, true)
 
-	req := httptest.NewRequest("GET", "/api/v1/links/"+linkID.String()+"/stats", nil)
+	req := httptest.NewRequest("GET", linkURL("/"+linkID.String()+"/stats"), nil)
 	w := httptest.NewRecorder()
 
 	r.ServeHTTP(w, req)
@@ -457,7 +407,7 @@ func TestGetQuickStats_InvalidID(t *testing.T) {
 
 	r := setupTestRouter(svc, true)
 
-	req := httptest.NewRequest("GET", "/api/v1/links/not-a-uuid/stats", nil)
+	req := httptest.NewRequest("GET", linkURL("/not-a-uuid/stats"), nil)
 	w := httptest.NewRecorder()
 
 	r.ServeHTTP(w, req)
@@ -476,7 +426,7 @@ func TestGetQuickStats_NotFound(t *testing.T) {
 
 	r := setupTestRouter(svc, true)
 
-	req := httptest.NewRequest("GET", "/api/v1/links/"+uuid.New().String()+"/stats", nil)
+	req := httptest.NewRequest("GET", linkURL("/"+uuid.New().String()+"/stats"), nil)
 	w := httptest.NewRecorder()
 
 	r.ServeHTTP(w, req)

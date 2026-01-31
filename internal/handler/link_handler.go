@@ -21,16 +21,19 @@ func NewLinkHandler(linkService service.LinkService, logger *zap.Logger) *LinkHa
 	return &LinkHandler{linkService: linkService, logger: logger}
 }
 
-func (h *LinkHandler) RegisterRoutes(rg *gin.RouterGroup, authMw gin.HandlerFunc) {
-	links := rg.Group("/links", authMw)
+// RegisterRoutes registers link routes under a workspace-scoped router group.
+// editorMw enforces editor+ role for write operations.
+func (h *LinkHandler) RegisterRoutes(wsScoped *gin.RouterGroup, editorMw gin.HandlerFunc) {
+	links := wsScoped.Group("/links")
 	{
-		links.POST("", h.CreateLink)
 		links.GET("", h.ListLinks)
 		links.GET("/:id", h.GetLink)
-		links.PUT("/:id", h.UpdateLink)
-		links.DELETE("/:id", h.DeleteLink)
-		links.POST("/bulk", h.BulkCreateLinks)
 		links.GET("/:id/stats", h.GetQuickStats)
+
+		links.POST("", editorMw, h.CreateLink)
+		links.PUT("/:id", editorMw, h.UpdateLink)
+		links.DELETE("/:id", editorMw, h.DeleteLink)
+		links.POST("/bulk", editorMw, h.BulkCreateLinks)
 	}
 }
 
@@ -41,19 +44,19 @@ func (h *LinkHandler) CreateLink(c *gin.Context) {
 		return
 	}
 
+	ws := middleware.GetWorkspaceFromContext(c)
+	if ws == nil {
+		httputil.RespondError(c, httputil.Forbidden("workspace access required"))
+		return
+	}
+
 	var input models.CreateLinkInput
 	if err := c.ShouldBindJSON(&input); err != nil {
 		httputil.RespondError(c, httputil.Validation("body", err.Error()))
 		return
 	}
 
-	workspaceID, err := getWorkspaceID(c)
-	if err != nil {
-		httputil.RespondError(c, err)
-		return
-	}
-
-	link, err := h.linkService.CreateLink(c.Request.Context(), user.ID, workspaceID, input)
+	link, err := h.linkService.CreateLink(c.Request.Context(), user.ID, ws.ID, input)
 	if err != nil {
 		httputil.RespondError(c, err)
 		return
@@ -63,9 +66,9 @@ func (h *LinkHandler) CreateLink(c *gin.Context) {
 }
 
 func (h *LinkHandler) ListLinks(c *gin.Context) {
-	workspaceID, err := getWorkspaceID(c)
-	if err != nil {
-		httputil.RespondError(c, err)
+	ws := middleware.GetWorkspaceFromContext(c)
+	if ws == nil {
+		httputil.RespondError(c, httputil.Forbidden("workspace access required"))
 		return
 	}
 
@@ -84,7 +87,7 @@ func (h *LinkHandler) ListLinks(c *gin.Context) {
 		pagination.Limit = 20
 	}
 
-	result, err := h.linkService.ListLinks(c.Request.Context(), workspaceID, filter, pagination)
+	result, err := h.linkService.ListLinks(c.Request.Context(), ws.ID, filter, pagination)
 	if err != nil {
 		httputil.RespondError(c, err)
 		return
@@ -110,9 +113,9 @@ func (h *LinkHandler) GetLink(c *gin.Context) {
 }
 
 func (h *LinkHandler) UpdateLink(c *gin.Context) {
-	user := middleware.GetUserFromContext(c)
-	if user == nil {
-		httputil.RespondError(c, httputil.Unauthorized("not authenticated"))
+	ws := middleware.GetWorkspaceFromContext(c)
+	if ws == nil {
+		httputil.RespondError(c, httputil.Forbidden("workspace access required"))
 		return
 	}
 
@@ -128,7 +131,7 @@ func (h *LinkHandler) UpdateLink(c *gin.Context) {
 		return
 	}
 
-	link, err := h.linkService.UpdateLink(c.Request.Context(), id, user.ID, input)
+	link, err := h.linkService.UpdateLink(c.Request.Context(), id, ws.ID, input)
 	if err != nil {
 		httputil.RespondError(c, err)
 		return
@@ -138,9 +141,9 @@ func (h *LinkHandler) UpdateLink(c *gin.Context) {
 }
 
 func (h *LinkHandler) DeleteLink(c *gin.Context) {
-	user := middleware.GetUserFromContext(c)
-	if user == nil {
-		httputil.RespondError(c, httputil.Unauthorized("not authenticated"))
+	ws := middleware.GetWorkspaceFromContext(c)
+	if ws == nil {
+		httputil.RespondError(c, httputil.Forbidden("workspace access required"))
 		return
 	}
 
@@ -150,7 +153,7 @@ func (h *LinkHandler) DeleteLink(c *gin.Context) {
 		return
 	}
 
-	if err := h.linkService.DeleteLink(c.Request.Context(), id, user.ID); err != nil {
+	if err := h.linkService.DeleteLink(c.Request.Context(), id, ws.ID); err != nil {
 		httputil.RespondError(c, err)
 		return
 	}
@@ -165,19 +168,19 @@ func (h *LinkHandler) BulkCreateLinks(c *gin.Context) {
 		return
 	}
 
+	ws := middleware.GetWorkspaceFromContext(c)
+	if ws == nil {
+		httputil.RespondError(c, httputil.Forbidden("workspace access required"))
+		return
+	}
+
 	var input models.BulkCreateLinkInput
 	if err := c.ShouldBindJSON(&input); err != nil {
 		httputil.RespondError(c, httputil.Validation("body", err.Error()))
 		return
 	}
 
-	workspaceID, err := getWorkspaceID(c)
-	if err != nil {
-		httputil.RespondError(c, err)
-		return
-	}
-
-	links, err := h.linkService.BulkCreateLinks(c.Request.Context(), user.ID, workspaceID, input)
+	links, err := h.linkService.BulkCreateLinks(c.Request.Context(), user.ID, ws.ID, input)
 	if err != nil {
 		httputil.RespondError(c, err)
 		return
@@ -200,17 +203,4 @@ func (h *LinkHandler) GetQuickStats(c *gin.Context) {
 	}
 
 	httputil.RespondSuccess(c, http.StatusOK, stats)
-}
-
-// getWorkspaceID extracts workspace_id from query param. Will be replaced by workspace middleware in Phase 5.
-func getWorkspaceID(c *gin.Context) (uuid.UUID, error) {
-	wsID := c.Query("workspace_id")
-	if wsID == "" {
-		return uuid.Nil, httputil.Validation("workspace_id", "workspace_id query parameter is required")
-	}
-	id, err := uuid.Parse(wsID)
-	if err != nil {
-		return uuid.Nil, httputil.Validation("workspace_id", "invalid workspace_id format")
-	}
-	return id, nil
 }
