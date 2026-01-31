@@ -19,6 +19,7 @@ export default function AppLayout() {
     { label: "Dashboard", href: "/" },
     { label: "Links", href: "/links" },
     { label: "Analytics", href: "/analytics" },
+    { label: "Bio Pages", href: "/bio-pages" },
     ...(canManageMembers()
       ? [
           { label: "Domains", href: "/domains" },

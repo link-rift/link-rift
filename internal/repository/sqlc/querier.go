@@ -15,6 +15,8 @@ type Querier interface {
 	AddWorkspaceMember(ctx context.Context, arg AddWorkspaceMemberParams) (WorkspaceMember, error)
 	CreateAPIKey(ctx context.Context, arg CreateAPIKeyParams) (ApiKey, error)
 	CreateAuditLog(ctx context.Context, arg CreateAuditLogParams) error
+	CreateBioPage(ctx context.Context, arg CreateBioPageParams) (BioPage, error)
+	CreateBioPageLink(ctx context.Context, arg CreateBioPageLinkParams) (BioPageLink, error)
 	CreateDomain(ctx context.Context, arg CreateDomainParams) (Domain, error)
 	CreateLink(ctx context.Context, arg CreateLinkParams) (Link, error)
 	CreateQRCode(ctx context.Context, arg CreateQRCodeParams) (QrCode, error)
@@ -29,11 +31,17 @@ type Querier interface {
 	CreateSession(ctx context.Context, arg CreateSessionParams) (Session, error)
 	CreateUser(ctx context.Context, arg CreateUserParams) (User, error)
 	CreateWorkspace(ctx context.Context, arg CreateWorkspaceParams) (Workspace, error)
+	DeleteBioPageLink(ctx context.Context, id uuid.UUID) error
 	DeleteExpiredPasswordResets(ctx context.Context) error
 	DeleteExpiredSessions(ctx context.Context) error
 	DeleteLinkRule(ctx context.Context, id uuid.UUID) error
 	GetAPIKeyByPrefix(ctx context.Context, keyPrefix string) (ApiKey, error)
 	GetActiveRulesForLink(ctx context.Context, linkID uuid.UUID) ([]LinkRule, error)
+	GetBioPageByID(ctx context.Context, id uuid.UUID) (BioPage, error)
+	GetBioPageBySlug(ctx context.Context, slug string) (BioPage, error)
+	GetBioPageCountForWorkspace(ctx context.Context, workspaceID uuid.UUID) (int64, error)
+	GetBioPageLinkByID(ctx context.Context, id uuid.UUID) (BioPageLink, error)
+	GetMaxBioPageLinkPosition(ctx context.Context, bioPageID uuid.UUID) (int32, error)
 	GetClicksByLinkID(ctx context.Context, arg GetClicksByLinkIDParams) ([]Click, error)
 	GetDomainByDomain(ctx context.Context, domain string) (Domain, error)
 	GetDomainByID(ctx context.Context, id uuid.UUID) (Domain, error)
@@ -52,11 +60,14 @@ type Querier interface {
 	GetWorkspaceByID(ctx context.Context, id uuid.UUID) (Workspace, error)
 	GetWorkspaceBySlug(ctx context.Context, slug string) (Workspace, error)
 	GetWorkspaceMember(ctx context.Context, arg GetWorkspaceMemberParams) (WorkspaceMember, error)
+	IncrementBioPageLinkClickCount(ctx context.Context, id uuid.UUID) error
 	IncrementLinkClicks(ctx context.Context, id uuid.UUID) error
 	IncrementLinkUniqueClicks(ctx context.Context, id uuid.UUID) error
 	InsertClick(ctx context.Context, arg InsertClickParams) error
 	ListAPIKeysForWorkspace(ctx context.Context, workspaceID pgtype.UUID) ([]ApiKey, error)
 	ListAuditLogsForWorkspace(ctx context.Context, arg ListAuditLogsForWorkspaceParams) ([]AuditLog, error)
+	ListBioPageLinks(ctx context.Context, bioPageID uuid.UUID) ([]BioPageLink, error)
+	ListBioPagesForWorkspace(ctx context.Context, workspaceID uuid.UUID) ([]BioPage, error)
 	ListDomainsForWorkspace(ctx context.Context, workspaceID uuid.UUID) ([]Domain, error)
 	ListLinksForWorkspace(ctx context.Context, arg ListLinksForWorkspaceParams) ([]ListLinksForWorkspaceRow, error)
 	ListUserSessions(ctx context.Context, userID uuid.UUID) ([]Session, error)
@@ -69,10 +80,14 @@ type Querier interface {
 	RevokeSession(ctx context.Context, id uuid.UUID) error
 	SetEmailVerified(ctx context.Context, id uuid.UUID) error
 	ShortCodeExists(ctx context.Context, shortCode string) (bool, error)
+	SoftDeleteBioPage(ctx context.Context, id uuid.UUID) error
 	SoftDeleteDomain(ctx context.Context, id uuid.UUID) error
 	SoftDeleteLink(ctx context.Context, id uuid.UUID) error
 	SoftDeleteUser(ctx context.Context, id uuid.UUID) error
 	SoftDeleteWorkspace(ctx context.Context, id uuid.UUID) error
+	UpdateBioPage(ctx context.Context, arg UpdateBioPageParams) (BioPage, error)
+	UpdateBioPageLink(ctx context.Context, arg UpdateBioPageLinkParams) (BioPageLink, error)
+	UpdateBioPageLinkPosition(ctx context.Context, arg UpdateBioPageLinkPositionParams) error
 	UpdateDomain(ctx context.Context, arg UpdateDomainParams) (Domain, error)
 	UpdateLink(ctx context.Context, arg UpdateLinkParams) (Link, error)
 	UpdateLinkRule(ctx context.Context, arg UpdateLinkRuleParams) (LinkRule, error)

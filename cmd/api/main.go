@@ -118,6 +118,7 @@ func main() {
 	memberRepo := repository.NewWorkspaceMemberRepository(queries, logger)
 	domainRepo := repository.NewDomainRepository(queries, logger)
 	qrCodeRepo := repository.NewQRCodeRepository(queries, logger)
+	bioPageRepo := repository.NewBioPageRepository(queries, logger)
 
 	// 9b. Create storage client (local fallback for development)
 	var objectStore storage.ObjectStorage
@@ -149,6 +150,7 @@ func main() {
 	sslProvider := service.NewMockSSLProvider()
 	domainService := service.NewDomainService(domainRepo, licManager, sslProvider, cfg, logger)
 	qrService := service.NewQRCodeService(qrCodeRepo, linkRepo, qrGenerator, qrBatchGenerator, objectStore, licManager, cfg, logger)
+	bioPageService := service.NewBioPageService(bioPageRepo, licManager, logger)
 
 	// 11. Create handlers
 	authHandler := handler.NewAuthHandler(authService, logger)
@@ -158,6 +160,7 @@ func main() {
 	analyticsHandler := handler.NewAnalyticsHandler(analyticsService, linkService, logger)
 	domainHandler := handler.NewDomainHandler(domainService, logger)
 	qrHandler := handler.NewQRHandler(qrService, logger)
+	bioPageHandler := handler.NewBioPageHandler(bioPageService, logger)
 
 	// WebSocket real-time hub
 	wsHub := realtime.NewHub(logger)
@@ -209,7 +212,11 @@ func main() {
 	linkHandler.RegisterRoutes(wsScoped, editorMw)
 	domainHandler.RegisterRoutes(wsScoped, editorMw)
 	qrHandler.RegisterRoutes(wsScoped, editorMw)
+	bioPageHandler.RegisterRoutes(wsScoped, editorMw)
 	analyticsHandler.RegisterRoutes(wsScoped)
+
+	// Public bio page routes (no auth)
+	bioPageHandler.RegisterPublicRoutes(router)
 
 	// WebSocket endpoint (outside API group, no auth middleware — auth via query param)
 	wsHandler.RegisterRoutes(router)
