@@ -21,6 +21,7 @@ export default function AppLayout() {
     { label: "Analytics", href: "/analytics" },
     ...(canManageMembers()
       ? [
+          { label: "Domains", href: "/domains" },
           { label: "Team", href: "/team" },
           { label: "Settings", href: "/settings" },
         ]

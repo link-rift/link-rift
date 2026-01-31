@@ -114,6 +114,7 @@ func main() {
 	clickRepo := repository.NewClickRepository(queries, logger)
 	workspaceRepo := repository.NewWorkspaceRepository(queries, logger)
 	memberRepo := repository.NewWorkspaceMemberRepository(queries, logger)
+	domainRepo := repository.NewDomainRepository(queries, logger)
 
 	// 10. Create services
 	authService := service.NewAuthService(
@@ -124,6 +125,8 @@ func main() {
 	linkService := service.NewLinkService(linkRepo, clickRepo, pgDB.Pool(), redisDB.Client(), cfg, logger)
 	workspaceService := service.NewWorkspaceService(workspaceRepo, memberRepo, userRepo, licManager, pgDB.Pool(), logger)
 	analyticsService := service.NewAnalyticsService(analyticsRepo, clickRepo, licManager, logger)
+	sslProvider := service.NewMockSSLProvider()
+	domainService := service.NewDomainService(domainRepo, licManager, sslProvider, cfg, logger)
 
 	// 11. Create handlers
 	authHandler := handler.NewAuthHandler(authService, logger)
@@ -131,6 +134,7 @@ func main() {
 	linkHandler := handler.NewLinkHandler(linkService, logger)
 	workspaceHandler := handler.NewWorkspaceHandler(workspaceService, logger)
 	analyticsHandler := handler.NewAnalyticsHandler(analyticsService, linkService, logger)
+	domainHandler := handler.NewDomainHandler(domainService, logger)
 
 	// WebSocket real-time hub
 	wsHub := realtime.NewHub(logger)
@@ -180,6 +184,7 @@ func main() {
 	wsScoped := v1.Group("/workspaces/:workspaceId", authMw, wsAccessMw)
 	editorMw := middleware.RequireWorkspaceRole(models.RoleEditor)
 	linkHandler.RegisterRoutes(wsScoped, editorMw)
+	domainHandler.RegisterRoutes(wsScoped, editorMw)
 	analyticsHandler.RegisterRoutes(wsScoped)
 
 	// WebSocket endpoint (outside API group, no auth middleware — auth via query param)

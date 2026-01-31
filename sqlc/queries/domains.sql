@@ -35,3 +35,7 @@ RETURNING *;
 UPDATE domains
 SET deleted_at = NOW(), updated_at = NOW()
 WHERE id = $1 AND deleted_at IS NULL;
+
+-- name: GetDomainCountForWorkspace :one
+SELECT COUNT(*) AS count FROM domains
+WHERE workspace_id = $1 AND deleted_at IS NULL;

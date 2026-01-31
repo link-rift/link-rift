@@ -151,6 +151,18 @@ func (q *Queries) SoftDeleteDomain(ctx context.Context, id uuid.UUID) error {
 	return err
 }
 
+const getDomainCountForWorkspace = `-- name: GetDomainCountForWorkspace :one
+SELECT COUNT(*) AS count FROM domains
+WHERE workspace_id = $1 AND deleted_at IS NULL
+`
+
+func (q *Queries) GetDomainCountForWorkspace(ctx context.Context, workspaceID uuid.UUID) (int64, error) {
+	row := q.db.QueryRow(ctx, getDomainCountForWorkspace, workspaceID)
+	var count int64
+	err := row.Scan(&count)
+	return count, err
+}
+
 const updateDomain = `-- name: UpdateDomain :one
 UPDATE domains
 SET
