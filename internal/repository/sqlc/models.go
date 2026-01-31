@@ -574,6 +574,10 @@ type QrCode struct {
 	LogoUrl         pgtype.Text        `json:"logo_url"`
 	PngUrl          pgtype.Text        `json:"png_url"`
 	SvgUrl          pgtype.Text        `json:"svg_url"`
+	DotStyle        string             `json:"dot_style"`
+	CornerStyle     string             `json:"corner_style"`
+	Size            int32              `json:"size"`
+	Margin          int32              `json:"margin"`
 	ScanCount       int64              `json:"scan_count"`
 	CreatedAt       pgtype.Timestamptz `json:"created_at"`
 	UpdatedAt       pgtype.Timestamptz `json:"updated_at"`

@@ -238,6 +238,10 @@ CREATE TABLE qr_codes (
     logo_url VARCHAR(500),
     png_url VARCHAR(500),
     svg_url VARCHAR(500),
+    dot_style VARCHAR(20) NOT NULL DEFAULT 'square',
+    corner_style VARCHAR(20) NOT NULL DEFAULT 'square',
+    size INTEGER NOT NULL DEFAULT 512,
+    margin INTEGER NOT NULL DEFAULT 4,
     scan_count BIGINT NOT NULL DEFAULT 0,
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()

@@ -17,6 +17,13 @@ type Querier interface {
 	CreateAuditLog(ctx context.Context, arg CreateAuditLogParams) error
 	CreateDomain(ctx context.Context, arg CreateDomainParams) (Domain, error)
 	CreateLink(ctx context.Context, arg CreateLinkParams) (Link, error)
+	CreateQRCode(ctx context.Context, arg CreateQRCodeParams) (QrCode, error)
+	DeleteQRCode(ctx context.Context, id uuid.UUID) error
+	GetQRCodeByID(ctx context.Context, id uuid.UUID) (QrCode, error)
+	GetQRCodeByLinkID(ctx context.Context, linkID uuid.UUID) (QrCode, error)
+	IncrementQRScanCount(ctx context.Context, id uuid.UUID) error
+	ListQRCodesForLink(ctx context.Context, linkID uuid.UUID) ([]QrCode, error)
+	UpdateQRCode(ctx context.Context, arg UpdateQRCodeParams) (QrCode, error)
 	CreateLinkRule(ctx context.Context, arg CreateLinkRuleParams) (LinkRule, error)
 	CreatePasswordReset(ctx context.Context, arg CreatePasswordResetParams) (PasswordReset, error)
 	CreateSession(ctx context.Context, arg CreateSessionParams) (Session, error)

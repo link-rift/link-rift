@@ -1,4 +1,4 @@
-import { useState } from "react"
+import { useState, lazy, Suspense } from "react"
 import { useNavigate } from "react-router-dom"
 import { useDeleteLink } from "@/hooks/useLinks"
 import { Badge } from "@/components/ui/badge"
@@ -13,6 +13,8 @@ import {
 } from "@/components/ui/dropdown-menu"
 import type { Link } from "@/types/link"
 
+const QRCodeModal = lazy(() => import("@/components/features/qrcodes/QRCodeModal"))
+
 interface LinkRowProps {
   link: Link
   selected: boolean
@@ -24,6 +26,7 @@ export default function LinkRow({ link, selected, onSelect, onEdit }: LinkRowPro
   const navigate = useNavigate()
   const deleteLink = useDeleteLink()
   const [copied, setCopied] = useState(false)
+  const [showQRModal, setShowQRModal] = useState(false)
 
   function copyShortUrl() {
     navigator.clipboard.writeText(link.short_url)
@@ -108,6 +111,9 @@ export default function LinkRow({ link, selected, onSelect, onEdit }: LinkRowPro
             <DropdownMenuItem onClick={() => navigate(`/analytics/${link.id}`)}>
               View Analytics
             </DropdownMenuItem>
+            <DropdownMenuItem onClick={() => setShowQRModal(true)}>
+              QR Code
+            </DropdownMenuItem>
             <DropdownMenuSeparator />
             <DropdownMenuItem onClick={() => onEdit(link)}>
               Edit
@@ -122,6 +128,16 @@ export default function LinkRow({ link, selected, onSelect, onEdit }: LinkRowPro
           </DropdownMenuContent>
         </DropdownMenu>
       </div>
+
+      {showQRModal && (
+        <Suspense fallback={null}>
+          <QRCodeModal
+            link={link}
+            open={showQRModal}
+            onClose={() => setShowQRModal(false)}
+          />
+        </Suspense>
+      )}
     </div>
   )
 }

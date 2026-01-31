@@ -17,11 +17,13 @@ import (
 	"github.com/link-rift/link-rift/internal/license"
 	"github.com/link-rift/link-rift/internal/middleware"
 	"github.com/link-rift/link-rift/internal/models"
+	"github.com/link-rift/link-rift/internal/qrcode"
 	"github.com/link-rift/link-rift/internal/realtime"
 	"github.com/link-rift/link-rift/internal/repository"
 	"github.com/link-rift/link-rift/internal/repository/sqlc"
 	"github.com/link-rift/link-rift/internal/service"
 	"github.com/link-rift/link-rift/pkg/paseto"
+	"github.com/link-rift/link-rift/pkg/storage"
 	"go.uber.org/zap"
 )
 
@@ -115,6 +117,25 @@ func main() {
 	workspaceRepo := repository.NewWorkspaceRepository(queries, logger)
 	memberRepo := repository.NewWorkspaceMemberRepository(queries, logger)
 	domainRepo := repository.NewDomainRepository(queries, logger)
+	qrCodeRepo := repository.NewQRCodeRepository(queries, logger)
+
+	// 9b. Create storage client (local fallback for development)
+	var objectStore storage.ObjectStorage
+	if cfg.S3.Endpoint != "" && cfg.S3.AccessKey != "" {
+		s3Store, err := storage.NewS3Storage(cfg.S3)
+		if err != nil {
+			logger.Warn("S3 storage unavailable, falling back to local storage", zap.Error(err))
+			objectStore = storage.NewLocalStorage("./data/uploads/", cfg.App.BaseURL+"/uploads/")
+		} else {
+			objectStore = s3Store
+		}
+	} else {
+		objectStore = storage.NewLocalStorage("./data/uploads/", cfg.App.BaseURL+"/uploads/")
+	}
+
+	// 9c. Create QR code generator
+	qrGenerator := qrcode.NewGenerator(objectStore)
+	qrBatchGenerator := qrcode.NewBatchGenerator(qrGenerator, 4)
 
 	// 10. Create services
 	authService := service.NewAuthService(
@@ -127,6 +148,7 @@ func main() {
 	analyticsService := service.NewAnalyticsService(analyticsRepo, clickRepo, licManager, logger)
 	sslProvider := service.NewMockSSLProvider()
 	domainService := service.NewDomainService(domainRepo, licManager, sslProvider, cfg, logger)
+	qrService := service.NewQRCodeService(qrCodeRepo, linkRepo, qrGenerator, qrBatchGenerator, objectStore, licManager, cfg, logger)
 
 	// 11. Create handlers
 	authHandler := handler.NewAuthHandler(authService, logger)
@@ -135,6 +157,7 @@ func main() {
 	workspaceHandler := handler.NewWorkspaceHandler(workspaceService, logger)
 	analyticsHandler := handler.NewAnalyticsHandler(analyticsService, linkService, logger)
 	domainHandler := handler.NewDomainHandler(domainService, logger)
+	qrHandler := handler.NewQRHandler(qrService, logger)
 
 	// WebSocket real-time hub
 	wsHub := realtime.NewHub(logger)
@@ -185,6 +208,7 @@ func main() {
 	editorMw := middleware.RequireWorkspaceRole(models.RoleEditor)
 	linkHandler.RegisterRoutes(wsScoped, editorMw)
 	domainHandler.RegisterRoutes(wsScoped, editorMw)
+	qrHandler.RegisterRoutes(wsScoped, editorMw)
 	analyticsHandler.RegisterRoutes(wsScoped)
 
 	// WebSocket endpoint (outside API group, no auth middleware — auth via query param)
