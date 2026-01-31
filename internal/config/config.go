@@ -17,6 +17,7 @@ type Config struct {
 	Auth        AuthConfig
 	License     LicenseConfig
 	Redirect    RedirectConfig
+	GeoIP       GeoIPConfig
 	SMTP        SMTPConfig
 	S3          S3Config
 	Log         LogConfig
@@ -76,6 +77,10 @@ type RedirectConfig struct {
 	RedisCacheTTL time.Duration `mapstructure:"redis_cache_ttl"`
 	TrackerBuffer int           `mapstructure:"tracker_buffer"`
 	TrackerFlush  time.Duration `mapstructure:"tracker_flush"`
+}
+
+type GeoIPConfig struct {
+	DatabasePath string `mapstructure:"database_path"`
 }
 
 type SMTPConfig struct {
@@ -172,6 +177,7 @@ func bindEnvVars(v *viper.Viper) {
 	_ = v.BindEnv("redirect.redis_cache_ttl", "REDIRECT_REDIS_CACHE_TTL")
 	_ = v.BindEnv("redirect.tracker_buffer", "REDIRECT_TRACKER_BUFFER")
 	_ = v.BindEnv("redirect.tracker_flush", "REDIRECT_TRACKER_FLUSH")
+	_ = v.BindEnv("geoip.database_path", "GEOIP_DATABASE_PATH")
 	_ = v.BindEnv("smtp.host", "SMTP_HOST")
 	_ = v.BindEnv("smtp.port", "SMTP_PORT")
 	_ = v.BindEnv("smtp.user", "SMTP_USER")

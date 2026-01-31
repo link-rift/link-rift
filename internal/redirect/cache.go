@@ -75,6 +75,9 @@ func (c *Cache) SetL1(shortCode string, link *CachedLink) {
 
 // GetL2 checks the Redis cache.
 func (c *Cache) GetL2(ctx context.Context, shortCode string) (*CachedLink, bool) {
+	if c.redis == nil {
+		return nil, false
+	}
 	data, err := c.redis.Get(ctx, redisKeyPrefix+shortCode).Bytes()
 	if err != nil {
 		return nil, false
@@ -91,6 +94,9 @@ func (c *Cache) GetL2(ctx context.Context, shortCode string) (*CachedLink, bool)
 
 // SetL2 stores a link in the Redis cache.
 func (c *Cache) SetL2(ctx context.Context, shortCode string, link *CachedLink) {
+	if c.redis == nil {
+		return
+	}
 	data, err := json.Marshal(link)
 	if err != nil {
 		c.logger.Warn("failed to marshal link for cache", zap.Error(err))
@@ -129,6 +135,9 @@ func (c *Cache) Set(ctx context.Context, shortCode string, link *CachedLink) {
 // Invalidate removes a link from both cache layers.
 func (c *Cache) Invalidate(ctx context.Context, shortCode string) {
 	c.l1.Delete(shortCode)
+	if c.redis == nil {
+		return
+	}
 	if err := c.redis.Del(ctx, redisKeyPrefix+shortCode).Err(); err != nil {
 		c.logger.Warn("failed to invalidate redis cache", zap.Error(err), zap.String("short_code", shortCode))
 	}

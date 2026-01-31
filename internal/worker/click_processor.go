@@ -28,6 +28,8 @@ type ClickProcessor struct {
 	clickRepo   repository.ClickRepository
 	linkRepo    repository.LinkRepository
 	botDetector *redirect.BotDetector
+	geoLookup   *GeoLookup
+	chForwarder *ClickHouseForwarder
 	logger      *zap.Logger
 	done        chan struct{}
 }
@@ -47,6 +49,16 @@ func NewClickProcessor(
 		logger:      logger,
 		done:        make(chan struct{}),
 	}
+}
+
+// SetGeoLookup attaches an optional GeoIP2 lookup provider.
+func (cp *ClickProcessor) SetGeoLookup(gl *GeoLookup) {
+	cp.geoLookup = gl
+}
+
+// SetClickHouseForwarder attaches an optional ClickHouse forwarder.
+func (cp *ClickProcessor) SetClickHouseForwarder(f *ClickHouseForwarder) {
+	cp.chForwarder = f
 }
 
 // Start begins processing click events from the Redis queue.
@@ -122,12 +134,21 @@ func (cp *ClickProcessor) processEvents(ctx context.Context, events []*models.Cl
 		osName, osVersion := parseOS(event.UserAgent)
 		deviceType := parseDeviceType(event.UserAgent)
 
+		// Geo enrichment (optional, nil-safe)
+		var countryCode, region, city string
+		if cp.geoLookup != nil {
+			countryCode, region, city = cp.geoLookup.Lookup(event.IP)
+		}
+
 		params := sqlc.InsertClickParams{
 			LinkID:         event.LinkID,
 			ClickedAt:      pgtype.Timestamptz{Time: event.Timestamp, Valid: true},
 			IpAddress:      event.IP,
 			UserAgent:      pgtype.Text{String: event.UserAgent, Valid: event.UserAgent != ""},
 			Referer:        pgtype.Text{String: event.Referer, Valid: event.Referer != ""},
+			CountryCode:    pgtype.Text{String: countryCode, Valid: countryCode != ""},
+			Region:         pgtype.Text{String: region, Valid: region != ""},
+			City:           pgtype.Text{String: city, Valid: city != ""},
 			IsBot:          isBot,
 			Browser:        pgtype.Text{String: browser, Valid: browser != ""},
 			BrowserVersion: pgtype.Text{String: browserVersion, Valid: browserVersion != ""},
@@ -152,6 +173,21 @@ func (cp *ClickProcessor) processEvents(ctx context.Context, events []*models.Cl
 					zap.String("link_id", event.LinkID.String()),
 				)
 			}
+		}
+
+		// Forward to ClickHouse (optional, nil-safe, async/best-effort)
+		if cp.chForwarder != nil {
+			cp.chForwarder.Forward(ctx, event, EnrichedClick{
+				CountryCode:    countryCode,
+				Region:         region,
+				City:           city,
+				Browser:        browser,
+				BrowserVersion: browserVersion,
+				OS:             osName,
+				OSVersion:      osVersion,
+				DeviceType:     deviceType,
+				IsBot:          isBot,
+			})
 		}
 	}
 
