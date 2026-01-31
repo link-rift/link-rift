@@ -171,12 +171,13 @@ func main() {
 		// Track click
 		if !botDetector.IsBot(c.Request.UserAgent()) {
 			tracker.Track(&models.ClickEvent{
-				LinkID:    result.LinkID,
-				ShortCode: result.ShortCode,
-				IP:        c.ClientIP(),
-				UserAgent: c.Request.UserAgent(),
-				Referer:   c.Request.Referer(),
-				Timestamp: time.Now(),
+				LinkID:      result.LinkID,
+				WorkspaceID: result.WorkspaceID,
+				ShortCode:   result.ShortCode,
+				IP:          c.ClientIP(),
+				UserAgent:   c.Request.UserAgent(),
+				Referer:     c.Request.Referer(),
+				Timestamp:   time.Now(),
 			})
 		}
 
@@ -259,12 +260,13 @@ func main() {
 		// Track click (non-blocking, skip bots)
 		if !botDetector.IsBot(c.Request.UserAgent()) {
 			tracker.Track(&models.ClickEvent{
-				LinkID:    result.LinkID,
-				ShortCode: result.ShortCode,
-				IP:        c.ClientIP(),
-				UserAgent: c.Request.UserAgent(),
-				Referer:   c.Request.Referer(),
-				Timestamp: time.Now(),
+				LinkID:      result.LinkID,
+				WorkspaceID: result.WorkspaceID,
+				ShortCode:   result.ShortCode,
+				IP:          c.ClientIP(),
+				UserAgent:   c.Request.UserAgent(),
+				Referer:     c.Request.Referer(),
+				Timestamp:   time.Now(),
 			})
 		}
 

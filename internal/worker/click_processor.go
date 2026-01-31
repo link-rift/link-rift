@@ -189,6 +189,24 @@ func (cp *ClickProcessor) processEvents(ctx context.Context, events []*models.Cl
 				IsBot:          isBot,
 			})
 		}
+
+		// Publish real-time click notification via Redis Pub/Sub
+		if !isBot && cp.redis != nil {
+			notification := models.ClickNotification{
+				WorkspaceID: event.WorkspaceID,
+				LinkID:      event.LinkID,
+				ShortCode:   event.ShortCode,
+				Timestamp:   event.Timestamp,
+				CountryCode: countryCode,
+				DeviceType:  deviceType,
+				Browser:     browser,
+				Referer:     event.Referer,
+			}
+			notifData, err := json.Marshal(notification)
+			if err == nil {
+				cp.redis.Publish(ctx, "clicks:realtime", notifData)
+			}
+		}
 	}
 
 	cp.logger.Debug("processed click batch", zap.Int("count", len(events)))

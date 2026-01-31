@@ -1,0 +1,1 @@
+ALTER TABLE clicks DROP COLUMN IF EXISTS workspace_id;

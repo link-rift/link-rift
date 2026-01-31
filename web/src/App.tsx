@@ -11,6 +11,7 @@ import DashboardPage from "@/pages/dashboard/DashboardPage"
 import LinksPage from "@/pages/dashboard/LinksPage"
 import TeamMembersPage from "@/pages/dashboard/TeamMembersPage"
 import WorkspaceSettingsPage from "@/pages/dashboard/WorkspaceSettingsPage"
+import AnalyticsPage from "@/pages/dashboard/AnalyticsPage"
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -37,6 +38,8 @@ export default function App() {
             <Route element={<AppLayout />}>
               <Route path="/" element={<DashboardPage />} />
               <Route path="/links" element={<LinksPage />} />
+              <Route path="/analytics" element={<AnalyticsPage />} />
+              <Route path="/analytics/:linkId" element={<AnalyticsPage />} />
               <Route path="/team" element={<TeamMembersPage />} />
               <Route path="/settings" element={<WorkspaceSettingsPage />} />
             </Route>

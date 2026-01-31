@@ -31,12 +31,25 @@ type Click struct {
 
 // ClickEvent is a lightweight struct for the async tracking pipeline.
 type ClickEvent struct {
-	LinkID    uuid.UUID `json:"link_id"`
-	ShortCode string    `json:"short_code"`
-	IP        string    `json:"ip"`
-	UserAgent string    `json:"user_agent"`
-	Referer   string    `json:"referer"`
-	Timestamp time.Time `json:"timestamp"`
+	LinkID      uuid.UUID `json:"link_id"`
+	WorkspaceID uuid.UUID `json:"workspace_id"`
+	ShortCode   string    `json:"short_code"`
+	IP          string    `json:"ip"`
+	UserAgent   string    `json:"user_agent"`
+	Referer     string    `json:"referer"`
+	Timestamp   time.Time `json:"timestamp"`
+}
+
+// ClickNotification is published to Redis Pub/Sub for real-time WebSocket updates.
+type ClickNotification struct {
+	WorkspaceID uuid.UUID `json:"workspace_id"`
+	LinkID      uuid.UUID `json:"link_id"`
+	ShortCode   string    `json:"short_code"`
+	Timestamp   time.Time `json:"timestamp"`
+	CountryCode string    `json:"country_code,omitempty"`
+	DeviceType  string    `json:"device_type,omitempty"`
+	Browser     string    `json:"browser,omitempty"`
+	Referer     string    `json:"referer,omitempty"`
 }
 
 func ClickFromSqlc(c sqlc.Click) *Click {

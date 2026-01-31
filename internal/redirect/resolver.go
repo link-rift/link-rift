@@ -12,6 +12,7 @@ import (
 // ResolveResult contains all information needed to handle a redirect.
 type ResolveResult struct {
 	LinkID         uuid.UUID
+	WorkspaceID    uuid.UUID
 	ShortCode      string
 	DestinationURL string
 	IsActive       bool
@@ -57,6 +58,7 @@ func (r *Resolver) Resolve(ctx context.Context, shortCode string) (*ResolveResul
 	// Build cached entry
 	cl := &CachedLink{
 		ID:             link.ID,
+		WorkspaceID:    link.WorkspaceID,
 		ShortCode:      link.ShortCode,
 		DestinationURL: link.URL,
 		IsActive:       link.IsActive,
@@ -83,6 +85,7 @@ func (r *Resolver) Resolve(ctx context.Context, shortCode string) (*ResolveResul
 func (r *Resolver) cachedToResult(cl *CachedLink) *ResolveResult {
 	result := &ResolveResult{
 		LinkID:         cl.ID,
+		WorkspaceID:    cl.WorkspaceID,
 		ShortCode:      cl.ShortCode,
 		DestinationURL: cl.DestinationURL,
 		IsActive:       cl.IsActive,

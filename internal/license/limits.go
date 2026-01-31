@@ -4,56 +4,62 @@ package license
 type LimitType string
 
 const (
-	LimitMaxUsers           LimitType = "max_users"
-	LimitMaxDomains         LimitType = "max_domains"
-	LimitMaxLinksPerMonth   LimitType = "max_links_per_month"
-	LimitMaxClicksPerMonth  LimitType = "max_clicks_per_month"
-	LimitMaxWorkspaces      LimitType = "max_workspaces"
-	LimitMaxAPIRequestsPerMin LimitType = "max_api_requests_per_min"
+	LimitMaxUsers              LimitType = "max_users"
+	LimitMaxDomains            LimitType = "max_domains"
+	LimitMaxLinksPerMonth      LimitType = "max_links_per_month"
+	LimitMaxClicksPerMonth     LimitType = "max_clicks_per_month"
+	LimitMaxWorkspaces         LimitType = "max_workspaces"
+	LimitMaxAPIRequestsPerMin  LimitType = "max_api_requests_per_min"
+	LimitAnalyticsRetentionDays LimitType = "analytics_retention_days"
 )
 
 // Limits holds usage limits for a license tier.
 type Limits struct {
-	MaxUsers             int64 `json:"max_users"`
-	MaxDomains           int64 `json:"max_domains"`
-	MaxLinksPerMonth     int64 `json:"max_links_per_month"`
-	MaxClicksPerMonth    int64 `json:"max_clicks_per_month"`
-	MaxWorkspaces        int64 `json:"max_workspaces"`
-	MaxAPIRequestsPerMin int64 `json:"max_api_requests_per_min"`
+	MaxUsers                int64 `json:"max_users"`
+	MaxDomains              int64 `json:"max_domains"`
+	MaxLinksPerMonth        int64 `json:"max_links_per_month"`
+	MaxClicksPerMonth       int64 `json:"max_clicks_per_month"`
+	MaxWorkspaces           int64 `json:"max_workspaces"`
+	MaxAPIRequestsPerMin    int64 `json:"max_api_requests_per_min"`
+	AnalyticsRetentionDays  int64 `json:"analytics_retention_days"`
 }
 
 var defaultLimits = map[Tier]Limits{
 	TierFree: {
-		MaxUsers:             1,
-		MaxDomains:           0,
-		MaxLinksPerMonth:     100,
-		MaxClicksPerMonth:    10000,
-		MaxWorkspaces:        1,
-		MaxAPIRequestsPerMin: 10,
+		MaxUsers:               1,
+		MaxDomains:             0,
+		MaxLinksPerMonth:       100,
+		MaxClicksPerMonth:     10000,
+		MaxWorkspaces:          1,
+		MaxAPIRequestsPerMin:   10,
+		AnalyticsRetentionDays: 30,
 	},
 	TierPro: {
-		MaxUsers:             5,
-		MaxDomains:           3,
-		MaxLinksPerMonth:     5000,
-		MaxClicksPerMonth:    500000,
-		MaxWorkspaces:        3,
-		MaxAPIRequestsPerMin: 60,
+		MaxUsers:               5,
+		MaxDomains:             3,
+		MaxLinksPerMonth:       5000,
+		MaxClicksPerMonth:     500000,
+		MaxWorkspaces:          3,
+		MaxAPIRequestsPerMin:   60,
+		AnalyticsRetentionDays: 365,
 	},
 	TierBusiness: {
-		MaxUsers:             25,
-		MaxDomains:           10,
-		MaxLinksPerMonth:     50000,
-		MaxClicksPerMonth:    5000000,
-		MaxWorkspaces:        10,
-		MaxAPIRequestsPerMin: 300,
+		MaxUsers:               25,
+		MaxDomains:             10,
+		MaxLinksPerMonth:       50000,
+		MaxClicksPerMonth:     5000000,
+		MaxWorkspaces:          10,
+		MaxAPIRequestsPerMin:   300,
+		AnalyticsRetentionDays: 730,
 	},
 	TierEnterprise: {
-		MaxUsers:             -1, // unlimited
-		MaxDomains:           -1,
-		MaxLinksPerMonth:     -1,
-		MaxClicksPerMonth:    -1,
-		MaxWorkspaces:        -1,
-		MaxAPIRequestsPerMin: 1000,
+		MaxUsers:               -1, // unlimited
+		MaxDomains:             -1,
+		MaxLinksPerMonth:       -1,
+		MaxClicksPerMonth:     -1,
+		MaxWorkspaces:          -1,
+		MaxAPIRequestsPerMin:   1000,
+		AnalyticsRetentionDays: -1, // unlimited
 	},
 }
 
@@ -80,6 +86,8 @@ func (l Limits) GetLimit(lt LimitType) int64 {
 		return l.MaxWorkspaces
 	case LimitMaxAPIRequestsPerMin:
 		return l.MaxAPIRequestsPerMin
+	case LimitAnalyticsRetentionDays:
+		return l.AnalyticsRetentionDays
 	default:
 		return 0
 	}

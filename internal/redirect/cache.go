@@ -16,6 +16,7 @@ const redisKeyPrefix = "link:resolve:"
 // CachedLink holds the minimal fields needed for redirect resolution.
 type CachedLink struct {
 	ID             uuid.UUID `json:"id"`
+	WorkspaceID    uuid.UUID `json:"workspace_id"`
 	ShortCode      string    `json:"short_code"`
 	DestinationURL string    `json:"destination_url"`
 	IsActive       bool      `json:"is_active"`

@@ -17,6 +17,7 @@ import (
 	"github.com/link-rift/link-rift/internal/license"
 	"github.com/link-rift/link-rift/internal/middleware"
 	"github.com/link-rift/link-rift/internal/models"
+	"github.com/link-rift/link-rift/internal/realtime"
 	"github.com/link-rift/link-rift/internal/repository"
 	"github.com/link-rift/link-rift/internal/repository/sqlc"
 	"github.com/link-rift/link-rift/internal/service"
@@ -90,7 +91,22 @@ func main() {
 		logger.Info("no license key configured, running as community edition")
 	}
 
-	// 8. Create repositories
+	// 8. Connect ClickHouse (optional — analytics)
+	var analyticsRepo repository.AnalyticsRepository
+	if cfg.ClickHouse.URL != "" {
+		chDB, err := database.NewClickHouse(cfg.ClickHouse, logger)
+		if err != nil {
+			logger.Warn("ClickHouse unavailable, using PostgreSQL for analytics", zap.Error(err))
+			analyticsRepo = repository.NewPGAnalyticsRepository(pgDB.Pool(), logger)
+		} else {
+			defer chDB.Close()
+			analyticsRepo = repository.NewClickHouseAnalyticsRepository(chDB.Conn(), logger)
+		}
+	} else {
+		analyticsRepo = repository.NewPGAnalyticsRepository(pgDB.Pool(), logger)
+	}
+
+	// 9. Create repositories
 	userRepo := repository.NewUserRepository(queries, logger)
 	sessionRepo := repository.NewSessionRepository(queries, logger)
 	resetRepo := repository.NewPasswordResetRepository(queries, logger)
@@ -99,7 +115,7 @@ func main() {
 	workspaceRepo := repository.NewWorkspaceRepository(queries, logger)
 	memberRepo := repository.NewWorkspaceMemberRepository(queries, logger)
 
-	// 9. Create services
+	// 10. Create services
 	authService := service.NewAuthService(
 		userRepo, sessionRepo, resetRepo,
 		tokenMaker, pgDB.Pool(), redisDB.Client(),
@@ -107,14 +123,26 @@ func main() {
 	)
 	linkService := service.NewLinkService(linkRepo, clickRepo, pgDB.Pool(), redisDB.Client(), cfg, logger)
 	workspaceService := service.NewWorkspaceService(workspaceRepo, memberRepo, userRepo, licManager, pgDB.Pool(), logger)
+	analyticsService := service.NewAnalyticsService(analyticsRepo, clickRepo, licManager, logger)
 
-	// 10. Create handlers
+	// 11. Create handlers
 	authHandler := handler.NewAuthHandler(authService, logger)
 	licenseHandler := handler.NewLicenseHandler(licManager, logger)
 	linkHandler := handler.NewLinkHandler(linkService, logger)
 	workspaceHandler := handler.NewWorkspaceHandler(workspaceService, logger)
+	analyticsHandler := handler.NewAnalyticsHandler(analyticsService, linkService, logger)
 
-	// 11. Create Gin router
+	// WebSocket real-time hub
+	wsHub := realtime.NewHub(logger)
+	go wsHub.Run()
+	wsHandler := handler.NewWebSocketHandler(wsHub, tokenMaker, memberRepo, logger)
+
+	// Start Redis subscriber for real-time click notifications
+	realtimeCtx, realtimeCancel := context.WithCancel(context.Background())
+	defer realtimeCancel()
+	realtime.StartRedisSubscriber(realtimeCtx, redisDB.Client(), wsHub, logger)
+
+	// 12. Create Gin router
 	if cfg.App.Env == "production" {
 		gin.SetMode(gin.ReleaseMode)
 	}
@@ -130,7 +158,7 @@ func main() {
 		MaxAge:           12 * time.Hour,
 	}))
 
-	// 12. Health check
+	// 13. Health check
 	router.GET("/health", func(c *gin.Context) {
 		c.JSON(http.StatusOK, gin.H{
 			"status":  "ok",
@@ -138,7 +166,7 @@ func main() {
 		})
 	})
 
-	// 13. API v1 routes
+	// 14. API v1 routes
 	v1 := router.Group("/api/v1")
 	authMw := middleware.RequireAuth(tokenMaker, userRepo)
 	authHandler.RegisterRoutes(v1, authMw)
@@ -152,8 +180,12 @@ func main() {
 	wsScoped := v1.Group("/workspaces/:workspaceId", authMw, wsAccessMw)
 	editorMw := middleware.RequireWorkspaceRole(models.RoleEditor)
 	linkHandler.RegisterRoutes(wsScoped, editorMw)
+	analyticsHandler.RegisterRoutes(wsScoped)
 
-	// 14. Start server with graceful shutdown
+	// WebSocket endpoint (outside API group, no auth middleware — auth via query param)
+	wsHandler.RegisterRoutes(router)
+
+	// 15. Start server with graceful shutdown
 	srv := &http.Server{
 		Addr:         fmt.Sprintf(":%d", cfg.App.Port),
 		Handler:      router,

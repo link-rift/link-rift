@@ -1,4 +1,5 @@
 import { useState } from "react"
+import { useNavigate } from "react-router-dom"
 import { useDeleteLink } from "@/hooks/useLinks"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
@@ -20,6 +21,7 @@ interface LinkRowProps {
 }
 
 export default function LinkRow({ link, selected, onSelect, onEdit }: LinkRowProps) {
+  const navigate = useNavigate()
   const deleteLink = useDeleteLink()
   const [copied, setCopied] = useState(false)
 
@@ -102,6 +104,9 @@ export default function LinkRow({ link, selected, onSelect, onEdit }: LinkRowPro
             </DropdownMenuItem>
             <DropdownMenuItem onClick={() => window.open(link.url, "_blank")}>
               Open Destination
+            </DropdownMenuItem>
+            <DropdownMenuItem onClick={() => navigate(`/analytics/${link.id}`)}>
+              View Analytics
             </DropdownMenuItem>
             <DropdownMenuSeparator />
             <DropdownMenuItem onClick={() => onEdit(link)}>

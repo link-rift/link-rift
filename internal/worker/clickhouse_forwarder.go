@@ -48,12 +48,13 @@ func (f *ClickHouseForwarder) Forward(ctx context.Context, event *models.ClickEv
 
 	err := f.conn.AsyncInsert(ctx,
 		`INSERT INTO clicks (
-			link_id, short_code, clicked_at, ip_address, user_agent, referer,
+			link_id, workspace_id, short_code, clicked_at, ip_address, user_agent, referer,
 			country_code, region, city, browser, browser_version,
 			os, os_version, device_type, is_bot
-		) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+		) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
 		false,
 		event.LinkID,
+		event.WorkspaceID,
 		event.ShortCode,
 		event.Timestamp,
 		event.IP,
@@ -85,7 +86,7 @@ func (f *ClickHouseForwarder) ForwardBatch(ctx context.Context, events []*models
 
 	batch, err := f.conn.PrepareBatch(ctx,
 		`INSERT INTO clicks (
-			link_id, short_code, clicked_at, ip_address, user_agent, referer,
+			link_id, workspace_id, short_code, clicked_at, ip_address, user_agent, referer,
 			country_code, region, city, browser, browser_version,
 			os, os_version, device_type, is_bot
 		)`,
@@ -104,6 +105,7 @@ func (f *ClickHouseForwarder) ForwardBatch(ctx context.Context, events []*models
 
 		if err := batch.Append(
 			event.LinkID,
+			event.WorkspaceID,
 			event.ShortCode,
 			event.Timestamp,
 			event.IP,

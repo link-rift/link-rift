@@ -18,6 +18,7 @@ export default function AppLayout() {
   const navItems = [
     { label: "Dashboard", href: "/" },
     { label: "Links", href: "/links" },
+    { label: "Analytics", href: "/analytics" },
     ...(canManageMembers()
       ? [
           { label: "Team", href: "/team" },
@@ -39,7 +40,9 @@ export default function AppLayout() {
                   key={item.href}
                   to={item.href}
                   className={`rounded-md px-3 py-1.5 text-sm font-medium transition-colors ${
-                    location.pathname === item.href
+                    item.href === "/"
+                      ? location.pathname === "/"
+                      : location.pathname.startsWith(item.href)
                       ? "bg-muted text-foreground"
                       : "text-muted-foreground hover:text-foreground"
                   }`}
