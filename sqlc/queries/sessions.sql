@@ -18,6 +18,11 @@ WHERE id = $1;
 DELETE FROM sessions
 WHERE expires_at < NOW() OR is_revoked = TRUE;
 
+-- name: RevokeAllUserSessions :exec
+UPDATE sessions
+SET is_revoked = TRUE
+WHERE user_id = $1 AND is_revoked = FALSE;
+
 -- name: ListUserSessions :many
 SELECT * FROM sessions
 WHERE user_id = $1 AND is_revoked = FALSE AND expires_at > NOW()

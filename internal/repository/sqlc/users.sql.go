@@ -97,6 +97,17 @@ func (q *Queries) GetUserByID(ctx context.Context, id uuid.UUID) (User, error) {
 	return i, err
 }
 
+const setEmailVerified = `-- name: SetEmailVerified :exec
+UPDATE users
+SET email_verified_at = NOW(), updated_at = NOW()
+WHERE id = $1 AND deleted_at IS NULL
+`
+
+func (q *Queries) SetEmailVerified(ctx context.Context, id uuid.UUID) error {
+	_, err := q.db.Exec(ctx, setEmailVerified, id)
+	return err
+}
+
 const softDeleteUser = `-- name: SoftDeleteUser :exec
 UPDATE users
 SET deleted_at = NOW(), updated_at = NOW()
@@ -154,4 +165,20 @@ func (q *Queries) UpdateUser(ctx context.Context, arg UpdateUserParams) (User, e
 		&i.DeletedAt,
 	)
 	return i, err
+}
+
+const updateUserPassword = `-- name: UpdateUserPassword :exec
+UPDATE users
+SET password_hash = $2, updated_at = NOW()
+WHERE id = $1 AND deleted_at IS NULL
+`
+
+type UpdateUserPasswordParams struct {
+	ID           uuid.UUID `json:"id"`
+	PasswordHash string    `json:"password_hash"`
+}
+
+func (q *Queries) UpdateUserPassword(ctx context.Context, arg UpdateUserPasswordParams) error {
+	_, err := q.db.Exec(ctx, updateUserPassword, arg.ID, arg.PasswordHash)
+	return err
 }
