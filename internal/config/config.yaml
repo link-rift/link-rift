@@ -30,6 +30,9 @@ auth:
   access_token_expiry: 15m
   refresh_token_expiry: 168h
 
+license:
+  check_interval: 1h
+
 smtp:
   host: localhost
   port: 1025

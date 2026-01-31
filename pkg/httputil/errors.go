@@ -12,8 +12,9 @@ var (
 	ErrUnauthorized  = errors.New("unauthorized")
 	ErrForbidden     = errors.New("forbidden")
 	ErrValidation    = errors.New("validation error")
-	ErrRateLimited   = errors.New("rate limited")
-	ErrInternal      = errors.New("internal error")
+	ErrRateLimited      = errors.New("rate limited")
+	ErrPaymentRequired  = errors.New("payment required")
+	ErrInternal         = errors.New("internal error")
 )
 
 type AppError struct {
@@ -86,6 +87,26 @@ func RateLimited() *AppError {
 	}
 }
 
+func PaymentRequired(msg string) *AppError {
+	return &AppError{
+		Err:     ErrPaymentRequired,
+		Message: msg,
+		Code:    "PAYMENT_REQUIRED",
+	}
+}
+
+func PaymentRequiredWithDetails(feature, requiredTier string) *AppError {
+	return &AppError{
+		Err:     ErrPaymentRequired,
+		Message: fmt.Sprintf("feature %q requires %s plan or higher", feature, requiredTier),
+		Code:    "PAYMENT_REQUIRED",
+		Details: map[string]any{
+			"feature":       feature,
+			"required_tier": requiredTier,
+		},
+	}
+}
+
 func Wrap(err error, msg string) *AppError {
 	return &AppError{
 		Err:     err,
@@ -113,6 +134,8 @@ func MapToHTTPStatus(err error) int {
 		return http.StatusBadRequest
 	case errors.Is(err, ErrRateLimited):
 		return http.StatusTooManyRequests
+	case errors.Is(err, ErrPaymentRequired):
+		return http.StatusPaymentRequired
 	default:
 		return http.StatusInternalServerError
 	}

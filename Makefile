@@ -4,6 +4,7 @@
 	lint fmt vet security \
 	migrate-up migrate-down migrate-create sqlc \
 	docker-up docker-down docker-build \
+	keygen \
 	clean
 
 # Variables
@@ -157,6 +158,15 @@ docker-down:
 ## docker-build: Build Docker images
 docker-build:
 	docker compose build
+
+# ──────────────────────────────────────────────
+# License
+# ──────────────────────────────────────────────
+
+## keygen: Generate Ed25519 keypair for license verification
+keygen:
+	@mkdir -p internal/license/keys
+	$(GO) run scripts/keygen.go
 
 # ──────────────────────────────────────────────
 # Cleanup

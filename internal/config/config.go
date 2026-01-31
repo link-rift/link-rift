@@ -15,6 +15,7 @@ type Config struct {
 	ClickHouse ClickHouseConfig
 	Meilisearch MeilisearchConfig
 	Auth       AuthConfig
+	License    LicenseConfig
 	SMTP       SMTPConfig
 	S3         S3Config
 	Log        LogConfig
@@ -60,6 +61,12 @@ type AuthConfig struct {
 	TokenSecret       string        `mapstructure:"token_secret"`
 	AccessTokenExpiry time.Duration `mapstructure:"access_token_expiry"`
 	RefreshTokenExpiry time.Duration `mapstructure:"refresh_token_expiry"`
+}
+
+type LicenseConfig struct {
+	Key           string        `mapstructure:"key"`
+	PublicKeyPath string        `mapstructure:"public_key_path"`
+	CheckInterval time.Duration `mapstructure:"check_interval"`
 }
 
 type SMTPConfig struct {
@@ -148,6 +155,9 @@ func bindEnvVars(v *viper.Viper) {
 	_ = v.BindEnv("auth.token_secret", "AUTH_TOKEN_SECRET")
 	_ = v.BindEnv("auth.access_token_expiry", "AUTH_ACCESS_TOKEN_EXPIRY")
 	_ = v.BindEnv("auth.refresh_token_expiry", "AUTH_REFRESH_TOKEN_EXPIRY")
+	_ = v.BindEnv("license.key", "LICENSE_KEY")
+	_ = v.BindEnv("license.public_key_path", "LICENSE_PUBLIC_KEY_PATH")
+	_ = v.BindEnv("license.check_interval", "LICENSE_CHECK_INTERVAL")
 	_ = v.BindEnv("smtp.host", "SMTP_HOST")
 	_ = v.BindEnv("smtp.port", "SMTP_PORT")
 	_ = v.BindEnv("smtp.user", "SMTP_USER")
@@ -178,6 +188,7 @@ func setDefaults(v *viper.Viper) {
 	v.SetDefault("clickhouse.database", "linkrift_analytics")
 	v.SetDefault("auth.access_token_expiry", "15m")
 	v.SetDefault("auth.refresh_token_expiry", "168h")
+	v.SetDefault("license.check_interval", "1h")
 	v.SetDefault("smtp.host", "localhost")
 	v.SetDefault("smtp.port", 1025)
 	v.SetDefault("smtp.from", "noreply@linkrift.io")

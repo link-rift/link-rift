@@ -14,6 +14,7 @@ import (
 	"github.com/link-rift/link-rift/internal/config"
 	"github.com/link-rift/link-rift/internal/database"
 	"github.com/link-rift/link-rift/internal/handler"
+	"github.com/link-rift/link-rift/internal/license"
 	"github.com/link-rift/link-rift/internal/middleware"
 	"github.com/link-rift/link-rift/internal/repository"
 	"github.com/link-rift/link-rift/internal/repository/sqlc"
@@ -66,22 +67,45 @@ func main() {
 		logger.Fatal("failed to create token maker", zap.Error(err))
 	}
 
-	// 7. Create repositories
+	// 7. Initialize license system
+	licVerifier, err := license.NewVerifier()
+	if err != nil {
+		logger.Fatal("failed to create license verifier", zap.Error(err))
+	}
+
+	licManager := license.NewManager(licVerifier, logger)
+	if cfg.License.Key != "" {
+		if err := licManager.LoadLicense(cfg.License.Key); err != nil {
+			logger.Warn("failed to load license key, running as community edition", zap.Error(err))
+		} else {
+			logger.Info("license loaded",
+				zap.String("tier", string(licManager.GetTier())),
+			)
+			ctx, cancel := context.WithCancel(context.Background())
+			defer cancel()
+			licManager.StartPeriodicCheck(ctx, cfg.License.CheckInterval)
+		}
+	} else {
+		logger.Info("no license key configured, running as community edition")
+	}
+
+	// 8. Create repositories
 	userRepo := repository.NewUserRepository(queries, logger)
 	sessionRepo := repository.NewSessionRepository(queries, logger)
 	resetRepo := repository.NewPasswordResetRepository(queries, logger)
 
-	// 8. Create services
+	// 9. Create services
 	authService := service.NewAuthService(
 		userRepo, sessionRepo, resetRepo,
 		tokenMaker, pgDB.Pool(), redisDB.Client(),
 		cfg, logger,
 	)
 
-	// 9. Create handlers
+	// 10. Create handlers
 	authHandler := handler.NewAuthHandler(authService, logger)
+	licenseHandler := handler.NewLicenseHandler(licManager, logger)
 
-	// 10. Create Gin router
+	// 11. Create Gin router
 	if cfg.App.Env == "production" {
 		gin.SetMode(gin.ReleaseMode)
 	}
@@ -97,7 +121,7 @@ func main() {
 		MaxAge:           12 * time.Hour,
 	}))
 
-	// 11. Health check
+	// 12. Health check
 	router.GET("/health", func(c *gin.Context) {
 		c.JSON(http.StatusOK, gin.H{
 			"status":  "ok",
@@ -105,12 +129,13 @@ func main() {
 		})
 	})
 
-	// 12. API v1 routes
+	// 13. API v1 routes
 	v1 := router.Group("/api/v1")
 	authMw := middleware.RequireAuth(tokenMaker, userRepo)
 	authHandler.RegisterRoutes(v1, authMw)
+	licenseHandler.RegisterRoutes(v1, authMw)
 
-	// 13. Start server with graceful shutdown
+	// 14. Start server with graceful shutdown
 	srv := &http.Server{
 		Addr:         fmt.Sprintf(":%d", cfg.App.Port),
 		Handler:      router,
