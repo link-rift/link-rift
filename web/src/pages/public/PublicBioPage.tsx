@@ -40,8 +40,11 @@ function BioPageRenderer({ page }: { page: PublicBioPageType }) {
 
   return (
     <div className="flex min-h-screen flex-col items-center" style={bgStyle}>
-      {/* Custom CSS is user-provided content for their own bio page styling */}
+      {/* Custom CSS: page-level and workspace branding (sanitized server-side) */}
       {page.custom_css && <style dangerouslySetInnerHTML={{ __html: page.custom_css }} />}
+      {page.branding?.custom_css && (
+        <style dangerouslySetInnerHTML={{ __html: page.branding.custom_css }} />
+      )}
       <div className="w-full max-w-md px-4 py-12">
         {page.avatar_url && (
           <div className="mb-4 flex justify-center">
@@ -84,11 +87,31 @@ function BioPageRenderer({ page }: { page: PublicBioPageType }) {
             </button>
           ))}
         </div>
-        <div className="mt-12 text-center">
-          <span className="text-xs opacity-50" style={{ color: styles?.text_color }}>
-            Powered by Linkrift
-          </span>
-        </div>
+        {!page.branding?.hide_powered_by ? (
+          <div className="mt-12 text-center">
+            <span className="text-xs opacity-50" style={{ color: styles?.text_color }}>
+              Powered by Linkrift
+            </span>
+          </div>
+        ) : page.branding?.custom_footer_text ? (
+          <div className="mt-12 text-center">
+            {page.branding.custom_footer_url ? (
+              <a
+                href={page.branding.custom_footer_url}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-xs opacity-50 hover:opacity-70"
+                style={{ color: styles?.text_color }}
+              >
+                {page.branding.custom_footer_text}
+              </a>
+            ) : (
+              <span className="text-xs opacity-50" style={{ color: styles?.text_color }}>
+                {page.branding.custom_footer_text}
+              </span>
+            )}
+          </div>
+        ) : null}
       </div>
     </div>
   )

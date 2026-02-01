@@ -13,6 +13,7 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/link-rift/link-rift/internal/config"
 	"github.com/link-rift/link-rift/internal/database"
+	"github.com/link-rift/link-rift/internal/ee/audit"
 	"github.com/link-rift/link-rift/internal/handler"
 	"github.com/link-rift/link-rift/internal/license"
 	"github.com/link-rift/link-rift/internal/middleware"
@@ -24,6 +25,7 @@ import (
 	"github.com/link-rift/link-rift/internal/service"
 	"github.com/link-rift/link-rift/pkg/paseto"
 	"github.com/link-rift/link-rift/pkg/storage"
+	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"go.uber.org/zap"
 )
 
@@ -121,6 +123,10 @@ func main() {
 	bioPageRepo := repository.NewBioPageRepository(queries, logger)
 	apiKeyRepo := repository.NewAPIKeyRepository(queries, logger)
 	webhookRepo := repository.NewWebhookRepository(queries, logger)
+	auditLogRepo := repository.NewAuditLogRepository(queries, logger)
+	brandingRepo := repository.NewBrandingRepository(queries, logger)
+	ssoRepo := repository.NewSSORepository(queries, logger)
+	scimRepo := repository.NewSCIMRepository(queries, logger)
 
 	// 9b. Create storage client (local fallback for development)
 	var objectStore storage.ObjectStorage
@@ -143,6 +149,9 @@ func main() {
 	// 10. Create event publisher for webhooks
 	eventPublisher := service.NewEventPublisher(redisDB.Client(), logger)
 
+	// Create audit logger (no-ops when feature is disabled)
+	auditLogger := audit.NewAuditLogger(queries, licManager, logger)
+
 	// Create services
 	authService := service.NewAuthService(
 		userRepo, sessionRepo, resetRepo,
@@ -158,6 +167,21 @@ func main() {
 	bioPageService := service.NewBioPageService(bioPageRepo, licManager, eventPublisher, logger)
 	apiKeyService := service.NewAPIKeyService(apiKeyRepo, licManager, redisDB.Client(), logger)
 	webhookService := service.NewWebhookService(webhookRepo, licManager, logger)
+	auditLogService := service.NewAuditLogService(auditLogRepo, licManager, logger)
+	brandingService := service.NewBrandingService(brandingRepo, licManager, logger)
+	ssoService := service.NewSSOService(ssoRepo, licManager, cfg, logger)
+	scimService := service.NewSCIMService(scimRepo, userRepo, memberRepo, licManager, logger)
+
+	// Inject audit logger into services that need it
+	linkService.SetAuditLogger(auditLogger)
+	workspaceService.SetAuditLogger(auditLogger)
+	domainService.SetAuditLogger(auditLogger)
+	apiKeyService.SetAuditLogger(auditLogger)
+	webhookService.SetAuditLogger(auditLogger)
+	brandingService.SetAuditLogger(auditLogger)
+	bioPageService.SetBrandingRepository(brandingRepo)
+	ssoService.SetAuditLogger(auditLogger)
+	scimService.SetAuditLogger(auditLogger)
 
 	// 11. Create handlers
 	authHandler := handler.NewAuthHandler(authService, logger)
@@ -170,6 +194,10 @@ func main() {
 	bioPageHandler := handler.NewBioPageHandler(bioPageService, logger)
 	apiKeyHandler := handler.NewAPIKeyHandler(apiKeyService, logger)
 	webhookHandler := handler.NewWebhookHandler(webhookService, logger)
+	auditLogHandler := handler.NewAuditLogHandler(auditLogService, logger)
+	brandingHandler := handler.NewBrandingHandler(brandingService, logger)
+	ssoHandler := handler.NewSSOHandler(ssoService, logger)
+	scimHandler := handler.NewSCIMHandler(scimService, logger)
 
 	// WebSocket real-time hub
 	wsHub := realtime.NewHub(logger)
@@ -188,6 +216,7 @@ func main() {
 
 	router := gin.New()
 	router.Use(gin.Recovery())
+	router.Use(middleware.PrometheusMetrics("api"))
 	router.Use(cors.New(cors.Config{
 		AllowOrigins:     []string{cfg.App.FrontendURL},
 		AllowMethods:     []string{"GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"},
@@ -229,16 +258,36 @@ func main() {
 	analyticsHandler.RegisterRoutes(wsScoped)
 	apiKeyHandler.RegisterRoutes(wsScoped, adminMw)
 	webhookHandler.RegisterRoutes(wsScoped, adminMw)
+	auditLogHandler.RegisterRoutes(wsScoped, adminMw)
+	brandingHandler.RegisterRoutes(wsScoped, adminMw)
+	ssoHandler.RegisterAdminRoutes(wsScoped, adminMw)
+	scimHandler.RegisterAdminRoutes(wsScoped, adminMw)
 
 	// API key authenticated routes (alternative auth for programmatic access)
 	apiScoped := v1.Group("/workspaces/:workspaceId", apiKeyAuthMw, wsAccessMw)
 	linkHandler.RegisterRoutes(apiScoped, editorMw)
+
+	// Public SSO flow endpoints (no auth — these ARE the auth flow)
+	ssoHandler.RegisterPublicRoutes(v1)
+
+	// Public SCIM 2.0 protocol endpoints (bearer token auth via SCIM middleware)
+	scimHandler.RegisterSCIMRoutes(router)
 
 	// Public bio page routes (no auth)
 	bioPageHandler.RegisterPublicRoutes(router)
 
 	// WebSocket endpoint (outside API group, no auth middleware — auth via query param)
 	wsHandler.RegisterRoutes(router)
+
+	// Swagger UI / OpenAPI docs
+	openapiSpec, err := os.ReadFile("openapi/openapi.yaml")
+	if err != nil {
+		logger.Warn("OpenAPI spec not found, Swagger UI disabled", zap.Error(err))
+	} else {
+		swaggerHandler := handler.NewSwaggerHandler(openapiSpec)
+		swaggerHandler.RegisterRoutes(router)
+		logger.Info("Swagger UI available at /api/docs")
+	}
 
 	// 15. Start server with graceful shutdown
 	srv := &http.Server{
@@ -258,6 +307,24 @@ func main() {
 			logger.Fatal("server failed", zap.Error(err))
 		}
 	}()
+
+	// Start metrics server on a separate port
+	if cfg.Metrics.Enabled {
+		metricsMux := http.NewServeMux()
+		metricsMux.Handle("/metrics", promhttp.Handler())
+		metricsSrv := &http.Server{
+			Addr:    fmt.Sprintf(":%d", cfg.Metrics.Port),
+			Handler: metricsMux,
+		}
+		go func() {
+			logger.Info("starting metrics server",
+				zap.Int("port", cfg.Metrics.Port),
+			)
+			if err := metricsSrv.ListenAndServe(); err != nil && err != http.ErrServerClosed {
+				logger.Error("metrics server failed", zap.Error(err))
+			}
+		}()
+	}
 
 	quit := make(chan os.Signal, 1)
 	signal.Notify(quit, syscall.SIGINT, syscall.SIGTERM)

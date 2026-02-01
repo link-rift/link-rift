@@ -264,16 +264,31 @@ func BioPageLinkFromSqlc(l sqlc.BioPageLink) *BioPageLink {
 
 // PublicBioPageResponse is the response for the public /b/:slug endpoint.
 type PublicBioPageResponse struct {
-	Title           string           `json:"title"`
-	Bio             *string          `json:"bio,omitempty"`
-	AvatarURL       *string          `json:"avatar_url,omitempty"`
-	Slug            string           `json:"slug"`
-	Theme           *BioPageTheme    `json:"theme,omitempty"`
-	CustomCSS       *string          `json:"custom_css,omitempty"`
-	MetaTitle       *string          `json:"meta_title,omitempty"`
-	MetaDescription *string          `json:"meta_description,omitempty"`
-	OgImageURL      *string          `json:"og_image_url,omitempty"`
-	Links           []PublicBioLink  `json:"links"`
+	Title           string                `json:"title"`
+	Bio             *string               `json:"bio,omitempty"`
+	AvatarURL       *string               `json:"avatar_url,omitempty"`
+	Slug            string                `json:"slug"`
+	Theme           *BioPageTheme         `json:"theme,omitempty"`
+	CustomCSS       *string               `json:"custom_css,omitempty"`
+	MetaTitle       *string               `json:"meta_title,omitempty"`
+	MetaDescription *string               `json:"meta_description,omitempty"`
+	OgImageURL      *string               `json:"og_image_url,omitempty"`
+	Links           []PublicBioLink        `json:"links"`
+	Branding        *PublicBrandingResponse `json:"branding,omitempty"`
+}
+
+// PublicBrandingResponse is workspace branding visible on public pages.
+type PublicBrandingResponse struct {
+	LogoURL          string `json:"logo_url,omitempty"`
+	LogoDarkURL      string `json:"logo_dark_url,omitempty"`
+	FaviconURL       string `json:"favicon_url,omitempty"`
+	PrimaryColor     string `json:"primary_color,omitempty"`
+	SecondaryColor   string `json:"secondary_color,omitempty"`
+	AccentColor      string `json:"accent_color,omitempty"`
+	CustomCSS        string `json:"custom_css,omitempty"`
+	HidePoweredBy    bool   `json:"hide_powered_by"`
+	CustomFooterText string `json:"custom_footer_text,omitempty"`
+	CustomFooterURL  string `json:"custom_footer_url,omitempty"`
 }
 
 type PublicBioLink struct {

@@ -30,16 +30,18 @@ type WorkspaceService interface {
 	ListMembers(ctx context.Context, workspaceID uuid.UUID) ([]*models.WorkspaceMemberResponse, error)
 	GetMember(ctx context.Context, workspaceID, userID uuid.UUID) (*models.WorkspaceMember, error)
 	GetMemberCount(ctx context.Context, workspaceID uuid.UUID) (int64, error)
+	SetAuditLogger(logger AuditLogger)
 }
 
 type workspaceService struct {
-	wsRepo     repository.WorkspaceRepository
-	memberRepo repository.WorkspaceMemberRepository
-	userRepo   repository.UserRepository
-	licManager *license.Manager
-	events     EventPublisher
-	pool       *pgxpool.Pool
-	logger     *zap.Logger
+	wsRepo      repository.WorkspaceRepository
+	memberRepo  repository.WorkspaceMemberRepository
+	userRepo    repository.UserRepository
+	licManager  *license.Manager
+	events      EventPublisher
+	auditLogger AuditLogger
+	pool        *pgxpool.Pool
+	logger      *zap.Logger
 }
 
 func NewWorkspaceService(
@@ -52,14 +54,19 @@ func NewWorkspaceService(
 	logger *zap.Logger,
 ) WorkspaceService {
 	return &workspaceService{
-		wsRepo:     wsRepo,
-		memberRepo: memberRepo,
-		userRepo:   userRepo,
-		licManager: licManager,
-		events:     events,
-		pool:       pool,
-		logger:     logger,
+		wsRepo:      wsRepo,
+		memberRepo:  memberRepo,
+		userRepo:    userRepo,
+		licManager:  licManager,
+		events:      events,
+		auditLogger: noopAuditLogger{},
+		pool:        pool,
+		logger:      logger,
 	}
+}
+
+func (s *workspaceService) SetAuditLogger(logger AuditLogger) {
+	s.auditLogger = logger
 }
 
 func (s *workspaceService) CreateWorkspace(ctx context.Context, userID uuid.UUID, input models.CreateWorkspaceInput) (*models.Workspace, error) {

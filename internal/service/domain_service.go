@@ -40,6 +40,7 @@ type DomainService interface {
 	VerifyDomain(ctx context.Context, id, workspaceID uuid.UUID) (*models.Domain, error)
 	RemoveDomain(ctx context.Context, id, workspaceID uuid.UUID) error
 	GetDNSRecords(ctx context.Context, id uuid.UUID) (*models.VerificationInstructions, error)
+	SetAuditLogger(logger AuditLogger)
 }
 
 type domainService struct {
@@ -48,6 +49,7 @@ type domainService struct {
 	sslProvider SSLProvider
 	dnsResolver DNSResolver
 	events      EventPublisher
+	auditLogger AuditLogger
 	cfg         *config.Config
 	logger      *zap.Logger
 }
@@ -66,9 +68,14 @@ func NewDomainService(
 		sslProvider: sslProvider,
 		dnsResolver: &netResolver{resolver: net.DefaultResolver},
 		events:      events,
+		auditLogger: noopAuditLogger{},
 		cfg:         cfg,
 		logger:      logger,
 	}
+}
+
+func (s *domainService) SetAuditLogger(logger AuditLogger) {
+	s.auditLogger = logger
 }
 
 func (s *domainService) AddDomain(ctx context.Context, workspaceID uuid.UUID, input models.CreateDomainInput) (*models.Domain, error) {

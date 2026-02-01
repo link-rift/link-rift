@@ -22,11 +22,13 @@ type WebhookService interface {
 	GetWebhook(ctx context.Context, id, workspaceID uuid.UUID) (*models.Webhook, error)
 	DeleteWebhook(ctx context.Context, id, workspaceID uuid.UUID) error
 	ListDeliveries(ctx context.Context, webhookID, workspaceID uuid.UUID, limit, offset int32) ([]*models.WebhookDelivery, int64, error)
+	SetAuditLogger(logger AuditLogger)
 }
 
 type webhookService struct {
 	webhookRepo repository.WebhookRepository
 	licManager  *license.Manager
+	auditLogger AuditLogger
 	logger      *zap.Logger
 }
 
@@ -38,8 +40,13 @@ func NewWebhookService(
 	return &webhookService{
 		webhookRepo: webhookRepo,
 		licManager:  licManager,
+		auditLogger: noopAuditLogger{},
 		logger:      logger,
 	}
+}
+
+func (s *webhookService) SetAuditLogger(logger AuditLogger) {
+	s.auditLogger = logger
 }
 
 func (s *webhookService) CreateWebhook(ctx context.Context, workspaceID uuid.UUID, input models.CreateWebhookInput) (*models.CreateWebhookResponse, error) {

@@ -675,6 +675,78 @@ type Workspace struct {
 	DeletedAt pgtype.Timestamptz `json:"deleted_at"`
 }
 
+type SsoConfig struct {
+	ID               uuid.UUID          `json:"id"`
+	WorkspaceID      uuid.UUID          `json:"workspace_id"`
+	Provider         string             `json:"provider"`
+	EntityID         string             `json:"entity_id"`
+	SsoUrl           string             `json:"sso_url"`
+	SloUrl           pgtype.Text        `json:"slo_url"`
+	Certificate      string             `json:"certificate"`
+	IdpMetadataUrl   pgtype.Text        `json:"idp_metadata_url"`
+	IdpMetadataXml   pgtype.Text        `json:"idp_metadata_xml"`
+	AttributeMapping json.RawMessage    `json:"attribute_mapping"`
+	IsEnabled        bool               `json:"is_enabled"`
+	EnforceSso       bool               `json:"enforce_sso"`
+	AllowedDomains   []string           `json:"allowed_domains"`
+	CreatedAt        pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt        pgtype.Timestamptz `json:"updated_at"`
+}
+
+type SsoIdentity struct {
+	ID             uuid.UUID          `json:"id"`
+	UserID         uuid.UUID          `json:"user_id"`
+	WorkspaceID    uuid.UUID          `json:"workspace_id"`
+	Provider       string             `json:"provider"`
+	ExternalID     string             `json:"external_id"`
+	Email          string             `json:"email"`
+	Name           pgtype.Text        `json:"name"`
+	RawAttributes  json.RawMessage    `json:"raw_attributes"`
+	LastLoginAt    pgtype.Timestamptz `json:"last_login_at"`
+	CreatedAt      pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt      pgtype.Timestamptz `json:"updated_at"`
+}
+
+type WorkspaceBranding struct {
+	ID               uuid.UUID          `json:"id"`
+	WorkspaceID      uuid.UUID          `json:"workspace_id"`
+	LogoUrl          pgtype.Text        `json:"logo_url"`
+	LogoDarkUrl      pgtype.Text        `json:"logo_dark_url"`
+	FaviconUrl       pgtype.Text        `json:"favicon_url"`
+	PrimaryColor     pgtype.Text        `json:"primary_color"`
+	SecondaryColor   pgtype.Text        `json:"secondary_color"`
+	AccentColor      pgtype.Text        `json:"accent_color"`
+	CustomCss        pgtype.Text        `json:"custom_css"`
+	HidePoweredBy    bool               `json:"hide_powered_by"`
+	CustomFooterText pgtype.Text        `json:"custom_footer_text"`
+	CustomFooterUrl  pgtype.Text        `json:"custom_footer_url"`
+	CreatedAt        pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt        pgtype.Timestamptz `json:"updated_at"`
+}
+
+type ScimToken struct {
+	ID          uuid.UUID          `json:"id"`
+	WorkspaceID uuid.UUID          `json:"workspace_id"`
+	TokenHash   string             `json:"token_hash"`
+	TokenPrefix string             `json:"token_prefix"`
+	Name        string             `json:"name"`
+	IsActive    bool               `json:"is_active"`
+	LastUsedAt  pgtype.Timestamptz `json:"last_used_at"`
+	CreatedAt   pgtype.Timestamptz `json:"created_at"`
+	ExpiresAt   pgtype.Timestamptz `json:"expires_at"`
+}
+
+type ScimSyncLog struct {
+	ID           uuid.UUID          `json:"id"`
+	WorkspaceID  uuid.UUID          `json:"workspace_id"`
+	Operation    string             `json:"operation"`
+	ResourceType string             `json:"resource_type"`
+	ExternalID   pgtype.Text        `json:"external_id"`
+	Status       string             `json:"status"`
+	Details      json.RawMessage    `json:"details"`
+	CreatedAt    pgtype.Timestamptz `json:"created_at"`
+}
+
 type WorkspaceMember struct {
 	ID          uuid.UUID          `json:"id"`
 	WorkspaceID uuid.UUID          `json:"workspace_id"`

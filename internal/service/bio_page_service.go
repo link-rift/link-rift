@@ -42,13 +42,22 @@ type BioPageService interface {
 
 	// Public
 	GetPublicPage(ctx context.Context, slug string) (*models.PublicBioPageResponse, error)
+
+	// Branding injection
+	SetBrandingRepository(repo repository.BrandingRepository)
 }
 
 type bioPageService struct {
-	bioPageRepo repository.BioPageRepository
-	licManager  *license.Manager
-	events      EventPublisher
-	logger      *zap.Logger
+	bioPageRepo  repository.BioPageRepository
+	brandingRepo repository.BrandingRepository
+	licManager   *license.Manager
+	events       EventPublisher
+	logger       *zap.Logger
+}
+
+// SetBrandingRepository injects the branding repository for public bio page branding.
+func (s *bioPageService) SetBrandingRepository(repo repository.BrandingRepository) {
+	s.brandingRepo = repo
 }
 
 func NewBioPageService(
@@ -494,6 +503,25 @@ func (s *bioPageService) GetPublicPage(ctx context.Context, slug string) (*model
 		if themeKey != "" {
 			theme := models.PredefinedThemes[themeKey]
 			resp.Theme = &theme
+		}
+	}
+
+	// Include workspace branding if available and white_label feature is enabled
+	if s.brandingRepo != nil && s.licManager.HasFeature(license.FeatureWhiteLabel) {
+		branding, err := s.brandingRepo.Get(ctx, page.WorkspaceID)
+		if err == nil && branding != nil {
+			resp.Branding = &models.PublicBrandingResponse{
+				LogoURL:          branding.LogoURL,
+				LogoDarkURL:      branding.LogoDarkURL,
+				FaviconURL:       branding.FaviconURL,
+				PrimaryColor:     branding.PrimaryColor,
+				SecondaryColor:   branding.SecondaryColor,
+				AccentColor:      branding.AccentColor,
+				CustomCSS:        branding.CustomCSS,
+				HidePoweredBy:    branding.HidePoweredBy,
+				CustomFooterText: branding.CustomFooterText,
+				CustomFooterURL:  branding.CustomFooterURL,
+			}
 		}
 	}
 

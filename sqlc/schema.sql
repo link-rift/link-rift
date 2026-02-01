@@ -433,3 +433,106 @@ CREATE TABLE subscriptions (
 
 CREATE INDEX idx_subscriptions_workspace ON subscriptions(workspace_id);
 CREATE INDEX idx_subscriptions_stripe ON subscriptions(stripe_subscription_id);
+
+-- ============================================================================
+-- 20. workspace_branding
+-- ============================================================================
+CREATE TABLE workspace_branding (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    workspace_id UUID NOT NULL REFERENCES workspaces(id) ON DELETE CASCADE,
+    logo_url VARCHAR(500),
+    logo_dark_url VARCHAR(500),
+    favicon_url VARCHAR(500),
+    primary_color VARCHAR(7),
+    secondary_color VARCHAR(7),
+    accent_color VARCHAR(7),
+    custom_css TEXT,
+    hide_powered_by BOOLEAN NOT NULL DEFAULT FALSE,
+    custom_footer_text VARCHAR(255),
+    custom_footer_url VARCHAR(500),
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    CONSTRAINT uq_workspace_branding_workspace UNIQUE (workspace_id)
+);
+
+CREATE INDEX idx_workspace_branding_workspace ON workspace_branding(workspace_id);
+
+-- ============================================================================
+-- 21. sso_configs
+-- ============================================================================
+CREATE TABLE sso_configs (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    workspace_id UUID NOT NULL REFERENCES workspaces(id) ON DELETE CASCADE,
+    provider VARCHAR(50) NOT NULL DEFAULT 'saml',
+    entity_id VARCHAR(500) NOT NULL,
+    sso_url VARCHAR(500) NOT NULL,
+    slo_url VARCHAR(500),
+    certificate TEXT NOT NULL,
+    idp_metadata_url VARCHAR(500),
+    idp_metadata_xml TEXT,
+    attribute_mapping JSONB NOT NULL DEFAULT '{}',
+    is_enabled BOOLEAN NOT NULL DEFAULT FALSE,
+    enforce_sso BOOLEAN NOT NULL DEFAULT FALSE,
+    allowed_domains TEXT[] NOT NULL DEFAULT '{}',
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    CONSTRAINT uq_sso_configs_workspace UNIQUE (workspace_id)
+);
+
+CREATE INDEX idx_sso_configs_workspace ON sso_configs(workspace_id);
+
+-- ============================================================================
+-- 22. sso_identities
+-- ============================================================================
+CREATE TABLE sso_identities (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    workspace_id UUID NOT NULL REFERENCES workspaces(id) ON DELETE CASCADE,
+    provider VARCHAR(50) NOT NULL DEFAULT 'saml',
+    external_id VARCHAR(255) NOT NULL,
+    email VARCHAR(255) NOT NULL,
+    name VARCHAR(255),
+    raw_attributes JSONB NOT NULL DEFAULT '{}',
+    last_login_at TIMESTAMPTZ,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    CONSTRAINT uq_sso_identities_workspace_external UNIQUE (workspace_id, external_id)
+);
+
+CREATE INDEX idx_sso_identities_user ON sso_identities(user_id);
+CREATE INDEX idx_sso_identities_workspace ON sso_identities(workspace_id);
+CREATE INDEX idx_sso_identities_external ON sso_identities(workspace_id, external_id);
+
+-- ============================================================================
+-- 23. scim_tokens
+-- ============================================================================
+CREATE TABLE scim_tokens (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    workspace_id UUID NOT NULL REFERENCES workspaces(id) ON DELETE CASCADE,
+    token_hash VARCHAR(255) NOT NULL UNIQUE,
+    token_prefix VARCHAR(12) NOT NULL,
+    name VARCHAR(255) NOT NULL,
+    is_active BOOLEAN NOT NULL DEFAULT TRUE,
+    last_used_at TIMESTAMPTZ,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    expires_at TIMESTAMPTZ
+);
+
+CREATE INDEX idx_scim_tokens_workspace ON scim_tokens(workspace_id);
+CREATE INDEX idx_scim_tokens_hash ON scim_tokens(token_hash) WHERE is_active = TRUE;
+
+-- ============================================================================
+-- 24. scim_sync_log
+-- ============================================================================
+CREATE TABLE scim_sync_log (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    workspace_id UUID NOT NULL REFERENCES workspaces(id) ON DELETE CASCADE,
+    operation VARCHAR(50) NOT NULL,
+    resource_type VARCHAR(50) NOT NULL,
+    external_id VARCHAR(255),
+    status VARCHAR(50) NOT NULL,
+    details JSONB NOT NULL DEFAULT '{}',
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+CREATE INDEX idx_scim_sync_log_workspace ON scim_sync_log(workspace_id, created_at DESC);

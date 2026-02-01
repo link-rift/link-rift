@@ -17,6 +17,11 @@ import BioPagesPage from "@/pages/dashboard/BioPagesPage"
 import BioPageEditorPage from "@/pages/dashboard/BioPageEditorPage"
 import APIKeysPage from "@/pages/dashboard/APIKeysPage"
 import WebhooksPage from "@/pages/dashboard/WebhooksPage"
+import AuditLogsPage from "@/pages/dashboard/AuditLogsPage"
+import BrandingPage from "@/pages/dashboard/BrandingPage"
+import SSOSettingsPage from "@/pages/dashboard/SSOSettingsPage"
+import SCIMSettingsPage from "@/pages/dashboard/SCIMSettingsPage"
+import SSOLoginPage from "@/pages/auth/SSOLoginPage"
 import PublicBioPage from "@/pages/public/PublicBioPage"
 
 const queryClient = new QueryClient({
@@ -39,6 +44,7 @@ export default function App() {
             <Route path="/auth/register" element={<RegisterPage />} />
             <Route path="/auth/forgot-password" element={<ForgotPasswordPage />} />
             <Route path="/auth/reset-password" element={<ResetPasswordPage />} />
+            <Route path="/auth/sso" element={<SSOLoginPage />} />
           </Route>
           <Route element={<ProtectedRoute />}>
             <Route element={<AppLayout />}>
@@ -51,6 +57,10 @@ export default function App() {
               <Route path="/bio-pages/:id" element={<BioPageEditorPage />} />
               <Route path="/api-keys" element={<APIKeysPage />} />
               <Route path="/webhooks" element={<WebhooksPage />} />
+              <Route path="/audit-logs" element={<AuditLogsPage />} />
+              <Route path="/branding" element={<BrandingPage />} />
+              <Route path="/sso-settings" element={<SSOSettingsPage />} />
+              <Route path="/scim-settings" element={<SCIMSettingsPage />} />
               <Route path="/team" element={<TeamMembersPage />} />
               <Route path="/settings" element={<WorkspaceSettingsPage />} />
             </Route>

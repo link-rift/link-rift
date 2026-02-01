@@ -112,6 +112,20 @@ export interface PublicBioPage {
   meta_description?: string | null
   og_image_url?: string | null
   links: PublicBioLink[]
+  branding?: PublicBranding | null
+}
+
+export interface PublicBranding {
+  logo_url?: string
+  logo_dark_url?: string
+  favicon_url?: string
+  primary_color?: string
+  secondary_color?: string
+  accent_color?: string
+  custom_css?: string
+  hide_powered_by: boolean
+  custom_footer_text?: string
+  custom_footer_url?: string
 }
 
 export interface PublicBioLink {

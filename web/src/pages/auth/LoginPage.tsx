@@ -99,13 +99,19 @@ export default function LoginPage() {
           </form>
         </Form>
       </CardContent>
-      <CardFooter className="justify-center">
+      <CardFooter className="flex-col gap-2">
         <p className="text-sm text-muted-foreground">
           Don&apos;t have an account?{" "}
           <Link to="/auth/register" className="text-primary hover:underline">
             Sign up
           </Link>
         </p>
+        <Link
+          to="/auth/sso"
+          className="text-sm text-muted-foreground hover:text-primary"
+        >
+          Sign in with SSO
+        </Link>
       </CardFooter>
     </Card>
   )

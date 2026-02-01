@@ -3,12 +3,14 @@ import { useLogout } from "@/hooks/useAuth"
 import { useWorkspaces } from "@/hooks/useWorkspace"
 import { useAuthStore } from "@/stores/authStore"
 import { useWorkspaceStore } from "@/stores/workspaceStore"
+import { useLicenseStore } from "@/stores/licenseStore"
 import { Button } from "@/components/ui/button"
 import WorkspaceSwitcher from "@/components/features/workspaces/WorkspaceSwitcher"
 
 export default function AppLayout() {
   const { user } = useAuthStore()
   const { canManageMembers } = useWorkspaceStore()
+  const { hasFeature } = useLicenseStore()
   const logout = useLogout()
   const location = useLocation()
 
@@ -25,6 +27,18 @@ export default function AppLayout() {
           { label: "Domains", href: "/domains" },
           { label: "API Keys", href: "/api-keys" },
           { label: "Webhooks", href: "/webhooks" },
+          ...(hasFeature("audit_logs")
+            ? [{ label: "Audit Logs", href: "/audit-logs" }]
+            : []),
+          ...(hasFeature("white_label")
+            ? [{ label: "Branding", href: "/branding" }]
+            : []),
+          ...(hasFeature("saml")
+            ? [{ label: "SSO", href: "/sso-settings" }]
+            : []),
+          ...(hasFeature("scim")
+            ? [{ label: "SCIM", href: "/scim-settings" }]
+            : []),
           { label: "Team", href: "/team" },
           { label: "Settings", href: "/settings" },
         ]

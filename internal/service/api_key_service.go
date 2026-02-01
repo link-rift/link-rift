@@ -28,13 +28,15 @@ type APIKeyService interface {
 	RevokeAPIKey(ctx context.Context, id, workspaceID uuid.UUID) error
 	ValidateAPIKey(ctx context.Context, rawKey string) (*models.APIKey, error)
 	CheckRateLimit(ctx context.Context, keyID uuid.UUID) (remaining int64, err error)
+	SetAuditLogger(logger AuditLogger)
 }
 
 type apiKeyService struct {
-	apiKeyRepo repository.APIKeyRepository
-	licManager *license.Manager
-	redis      *redis.Client
-	logger     *zap.Logger
+	apiKeyRepo  repository.APIKeyRepository
+	licManager  *license.Manager
+	redis       *redis.Client
+	auditLogger AuditLogger
+	logger      *zap.Logger
 }
 
 func NewAPIKeyService(
@@ -44,11 +46,16 @@ func NewAPIKeyService(
 	logger *zap.Logger,
 ) APIKeyService {
 	return &apiKeyService{
-		apiKeyRepo: apiKeyRepo,
-		licManager: licManager,
-		redis:      redisClient,
-		logger:     logger,
+		apiKeyRepo:  apiKeyRepo,
+		licManager:  licManager,
+		redis:       redisClient,
+		auditLogger: noopAuditLogger{},
+		logger:      logger,
 	}
+}
+
+func (s *apiKeyService) SetAuditLogger(logger AuditLogger) {
+	s.auditLogger = logger
 }
 
 func (s *apiKeyService) CreateAPIKey(ctx context.Context, userID, workspaceID uuid.UUID, input models.CreateAPIKeyInput) (*models.CreateAPIKeyResponse, error) {

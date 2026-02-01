@@ -49,6 +49,146 @@ func (q *Queries) CreateAuditLog(ctx context.Context, arg CreateAuditLogParams) 
 	return err
 }
 
+const countAuditLogsForWorkspace = `-- name: CountAuditLogsForWorkspace :one
+SELECT COUNT(*) FROM audit_logs
+WHERE workspace_id = $1
+`
+
+func (q *Queries) CountAuditLogsForWorkspace(ctx context.Context, workspaceID uuid.UUID) (int64, error) {
+	row := q.db.QueryRow(ctx, countAuditLogsForWorkspace, workspaceID)
+	var count int64
+	err := row.Scan(&count)
+	return count, err
+}
+
+const getAuditLogByID = `-- name: GetAuditLogByID :one
+SELECT id, workspace_id, user_id, action, resource_type, resource_id, old_values, new_values, metadata, ip_address, user_agent, created_at FROM audit_logs
+WHERE id = $1 AND workspace_id = $2
+`
+
+type GetAuditLogByIDParams struct {
+	ID          uuid.UUID `json:"id"`
+	WorkspaceID uuid.UUID `json:"workspace_id"`
+}
+
+func (q *Queries) GetAuditLogByID(ctx context.Context, arg GetAuditLogByIDParams) (AuditLog, error) {
+	row := q.db.QueryRow(ctx, getAuditLogByID, arg.ID, arg.WorkspaceID)
+	var i AuditLog
+	err := row.Scan(
+		&i.ID,
+		&i.WorkspaceID,
+		&i.UserID,
+		&i.Action,
+		&i.ResourceType,
+		&i.ResourceID,
+		&i.OldValues,
+		&i.NewValues,
+		&i.Metadata,
+		&i.IpAddress,
+		&i.UserAgent,
+		&i.CreatedAt,
+	)
+	return i, err
+}
+
+const listAuditLogsFiltered = `-- name: ListAuditLogsFiltered :many
+SELECT id, workspace_id, user_id, action, resource_type, resource_id, old_values, new_values, metadata, ip_address, user_agent, created_at FROM audit_logs
+WHERE workspace_id = $1
+  AND ($4::VARCHAR IS NULL OR action = $4::VARCHAR)
+  AND ($5::VARCHAR IS NULL OR resource_type = $5::VARCHAR)
+  AND ($6::UUID IS NULL OR user_id = $6::UUID)
+  AND ($7::TIMESTAMPTZ IS NULL OR created_at >= $7::TIMESTAMPTZ)
+  AND ($8::TIMESTAMPTZ IS NULL OR created_at <= $8::TIMESTAMPTZ)
+ORDER BY created_at DESC
+LIMIT $2 OFFSET $3
+`
+
+type ListAuditLogsFilteredParams struct {
+	WorkspaceID  uuid.UUID          `json:"workspace_id"`
+	Limit        int32              `json:"limit"`
+	Offset       int32              `json:"offset"`
+	Action       pgtype.Text        `json:"action"`
+	ResourceType pgtype.Text        `json:"resource_type"`
+	UserID       pgtype.UUID        `json:"user_id"`
+	StartDate    pgtype.Timestamptz `json:"start_date"`
+	EndDate      pgtype.Timestamptz `json:"end_date"`
+}
+
+func (q *Queries) ListAuditLogsFiltered(ctx context.Context, arg ListAuditLogsFilteredParams) ([]AuditLog, error) {
+	rows, err := q.db.Query(ctx, listAuditLogsFiltered,
+		arg.WorkspaceID,
+		arg.Limit,
+		arg.Offset,
+		arg.Action,
+		arg.ResourceType,
+		arg.UserID,
+		arg.StartDate,
+		arg.EndDate,
+	)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []AuditLog{}
+	for rows.Next() {
+		var i AuditLog
+		if err := rows.Scan(
+			&i.ID,
+			&i.WorkspaceID,
+			&i.UserID,
+			&i.Action,
+			&i.ResourceType,
+			&i.ResourceID,
+			&i.OldValues,
+			&i.NewValues,
+			&i.Metadata,
+			&i.IpAddress,
+			&i.UserAgent,
+			&i.CreatedAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const countAuditLogsFiltered = `-- name: CountAuditLogsFiltered :one
+SELECT COUNT(*) FROM audit_logs
+WHERE workspace_id = $1
+  AND ($2::VARCHAR IS NULL OR action = $2::VARCHAR)
+  AND ($3::VARCHAR IS NULL OR resource_type = $3::VARCHAR)
+  AND ($4::UUID IS NULL OR user_id = $4::UUID)
+  AND ($5::TIMESTAMPTZ IS NULL OR created_at >= $5::TIMESTAMPTZ)
+  AND ($6::TIMESTAMPTZ IS NULL OR created_at <= $6::TIMESTAMPTZ)
+`
+
+type CountAuditLogsFilteredParams struct {
+	WorkspaceID  uuid.UUID          `json:"workspace_id"`
+	Action       pgtype.Text        `json:"action"`
+	ResourceType pgtype.Text        `json:"resource_type"`
+	UserID       pgtype.UUID        `json:"user_id"`
+	StartDate    pgtype.Timestamptz `json:"start_date"`
+	EndDate      pgtype.Timestamptz `json:"end_date"`
+}
+
+func (q *Queries) CountAuditLogsFiltered(ctx context.Context, arg CountAuditLogsFilteredParams) (int64, error) {
+	row := q.db.QueryRow(ctx, countAuditLogsFiltered,
+		arg.WorkspaceID,
+		arg.Action,
+		arg.ResourceType,
+		arg.UserID,
+		arg.StartDate,
+		arg.EndDate,
+	)
+	var count int64
+	err := row.Scan(&count)
+	return count, err
+}
+
 const listAuditLogsForWorkspace = `-- name: ListAuditLogsForWorkspace :many
 SELECT id, workspace_id, user_id, action, resource_type, resource_id, old_values, new_values, metadata, ip_address, user_agent, created_at FROM audit_logs
 WHERE workspace_id = $1

@@ -13,12 +13,16 @@ import (
 
 type Querier interface {
 	AddWorkspaceMember(ctx context.Context, arg AddWorkspaceMemberParams) (WorkspaceMember, error)
+	CountAuditLogsFiltered(ctx context.Context, arg CountAuditLogsFilteredParams) (int64, error)
+	CountAuditLogsForWorkspace(ctx context.Context, workspaceID uuid.UUID) (int64, error)
 	CountRecentWebhookFailures(ctx context.Context, webhookID uuid.UUID) (int64, error)
 	CountWebhookDeliveries(ctx context.Context, webhookID uuid.UUID) (int64, error)
 	CreateAPIKey(ctx context.Context, arg CreateAPIKeyParams) (ApiKey, error)
 	CreateAuditLog(ctx context.Context, arg CreateAuditLogParams) error
 	CreateWebhook(ctx context.Context, arg CreateWebhookParams) (Webhook, error)
 	CreateWebhookDelivery(ctx context.Context, arg CreateWebhookDeliveryParams) (WebhookDelivery, error)
+	CreateSSOConfig(ctx context.Context, arg CreateSSOConfigParams) (SsoConfig, error)
+	CreateSSOIdentity(ctx context.Context, arg CreateSSOIdentityParams) (SsoIdentity, error)
 	CreateBioPage(ctx context.Context, arg CreateBioPageParams) (BioPage, error)
 	CreateBioPageLink(ctx context.Context, arg CreateBioPageLinkParams) (BioPageLink, error)
 	CreateDomain(ctx context.Context, arg CreateDomainParams) (Domain, error)
@@ -39,6 +43,9 @@ type Querier interface {
 	CreateWorkspace(ctx context.Context, arg CreateWorkspaceParams) (Workspace, error)
 	DeleteBioPageLink(ctx context.Context, id uuid.UUID) error
 	DeleteExpiredPasswordResets(ctx context.Context) error
+	DeleteSSOConfig(ctx context.Context, workspaceID uuid.UUID) error
+	DeleteSSOIdentity(ctx context.Context, id uuid.UUID) error
+	DeleteWorkspaceBranding(ctx context.Context, workspaceID uuid.UUID) error
 	DeleteExpiredSessions(ctx context.Context) error
 	DeleteLinkRule(ctx context.Context, id uuid.UUID) error
 	GetAPIKeyByID(ctx context.Context, id uuid.UUID) (ApiKey, error)
@@ -48,6 +55,7 @@ type Querier interface {
 	GetWebhookByID(ctx context.Context, id uuid.UUID) (Webhook, error)
 	GetWebhookDeliveryByID(ctx context.Context, id uuid.UUID) (WebhookDelivery, error)
 	GetActiveRulesForLink(ctx context.Context, linkID uuid.UUID) ([]LinkRule, error)
+	GetAuditLogByID(ctx context.Context, arg GetAuditLogByIDParams) (AuditLog, error)
 	GetBioPageByID(ctx context.Context, id uuid.UUID) (BioPage, error)
 	GetBioPageBySlug(ctx context.Context, slug string) (BioPage, error)
 	GetBioPageCountForWorkspace(ctx context.Context, workspaceID uuid.UUID) (int64, error)
@@ -68,6 +76,10 @@ type Querier interface {
 	GetUserByEmail(ctx context.Context, email string) (User, error)
 	GetUserByID(ctx context.Context, id uuid.UUID) (User, error)
 	GetWorkspaceCountForUser(ctx context.Context, userID uuid.UUID) (int64, error)
+	GetSSOConfigByWorkspace(ctx context.Context, workspaceID uuid.UUID) (SsoConfig, error)
+	GetSSOIdentityByExternalID(ctx context.Context, arg GetSSOIdentityByExternalIDParams) (SsoIdentity, error)
+	GetSSOIdentityByUserID(ctx context.Context, arg GetSSOIdentityByUserIDParams) (SsoIdentity, error)
+	GetWorkspaceBranding(ctx context.Context, workspaceID uuid.UUID) (WorkspaceBranding, error)
 	GetWorkspaceByID(ctx context.Context, id uuid.UUID) (Workspace, error)
 	GetWorkspaceBySlug(ctx context.Context, slug string) (Workspace, error)
 	GetWorkspaceMember(ctx context.Context, arg GetWorkspaceMemberParams) (WorkspaceMember, error)
@@ -79,6 +91,8 @@ type Querier interface {
 	ListAPIKeysForWorkspace(ctx context.Context, workspaceID pgtype.UUID) ([]ApiKey, error)
 	ListWebhookDeliveries(ctx context.Context, arg ListWebhookDeliveriesParams) ([]WebhookDelivery, error)
 	ListWebhooksForWorkspace(ctx context.Context, workspaceID uuid.UUID) ([]Webhook, error)
+	ListSSOIdentitiesForWorkspace(ctx context.Context, workspaceID uuid.UUID) ([]SsoIdentity, error)
+	ListAuditLogsFiltered(ctx context.Context, arg ListAuditLogsFilteredParams) ([]AuditLog, error)
 	ListAuditLogsForWorkspace(ctx context.Context, arg ListAuditLogsForWorkspaceParams) ([]AuditLog, error)
 	ListBioPageLinks(ctx context.Context, bioPageID uuid.UUID) ([]BioPageLink, error)
 	ListBioPagesForWorkspace(ctx context.Context, workspaceID uuid.UUID) ([]BioPage, error)
@@ -114,6 +128,18 @@ type Querier interface {
 	UpdateUser(ctx context.Context, arg UpdateUserParams) (User, error)
 	UpdateUserPassword(ctx context.Context, arg UpdateUserPasswordParams) error
 	UpdateWorkspace(ctx context.Context, arg UpdateWorkspaceParams) (Workspace, error)
+	UpdateSSOConfig(ctx context.Context, arg UpdateSSOConfigParams) (SsoConfig, error)
+	UpdateSSOIdentityLastLogin(ctx context.Context, arg UpdateSSOIdentityLastLoginParams) error
+	UpsertWorkspaceBranding(ctx context.Context, arg UpsertWorkspaceBrandingParams) (WorkspaceBranding, error)
+	CreateSCIMToken(ctx context.Context, arg CreateSCIMTokenParams) (ScimToken, error)
+	GetSCIMTokenByHash(ctx context.Context, tokenHash string) (ScimToken, error)
+	ListSCIMTokensForWorkspace(ctx context.Context, workspaceID uuid.UUID) ([]ScimToken, error)
+	RevokeSCIMToken(ctx context.Context, id uuid.UUID) error
+	UpdateSCIMTokenLastUsed(ctx context.Context, id uuid.UUID) error
+	DeleteSCIMToken(ctx context.Context, id uuid.UUID) error
+	CreateSCIMSyncLog(ctx context.Context, arg CreateSCIMSyncLogParams) error
+	ListSCIMSyncLogs(ctx context.Context, arg ListSCIMSyncLogsParams) ([]ScimSyncLog, error)
+	CountSCIMSyncLogs(ctx context.Context, workspaceID uuid.UUID) (int64, error)
 	UpdateWorkspaceOwner(ctx context.Context, arg UpdateWorkspaceOwnerParams) (Workspace, error)
 }
 

@@ -33,17 +33,19 @@ type LinkService interface {
 	GetQuickStats(ctx context.Context, id uuid.UUID) (*models.LinkQuickStats, error)
 	CheckShortCodeAvailable(ctx context.Context, code string) (bool, error)
 	VerifyLinkPassword(ctx context.Context, shortCode, password string) (bool, error)
+	SetAuditLogger(logger AuditLogger)
 }
 
 type linkService struct {
-	linkRepo  repository.LinkRepository
-	clickRepo repository.ClickRepository
-	pool      *pgxpool.Pool
-	redis     *redis.Client
-	cfg       *config.Config
-	codeGen   shortcode.Generator
-	events    EventPublisher
-	logger    *zap.Logger
+	linkRepo     repository.LinkRepository
+	clickRepo    repository.ClickRepository
+	pool         *pgxpool.Pool
+	redis        *redis.Client
+	cfg          *config.Config
+	codeGen      shortcode.Generator
+	events       EventPublisher
+	auditLogger  AuditLogger
+	logger       *zap.Logger
 }
 
 func NewLinkService(
@@ -56,15 +58,20 @@ func NewLinkService(
 	logger *zap.Logger,
 ) LinkService {
 	return &linkService{
-		linkRepo:  linkRepo,
-		clickRepo: clickRepo,
-		pool:      pool,
-		redis:     redisClient,
-		cfg:       cfg,
-		codeGen:   shortcode.NewGenerator(),
-		events:    events,
-		logger:    logger,
+		linkRepo:    linkRepo,
+		clickRepo:   clickRepo,
+		pool:        pool,
+		redis:       redisClient,
+		cfg:         cfg,
+		codeGen:     shortcode.NewGenerator(),
+		events:      events,
+		auditLogger: noopAuditLogger{},
+		logger:      logger,
 	}
+}
+
+func (s *linkService) SetAuditLogger(logger AuditLogger) {
+	s.auditLogger = logger
 }
 
 func (s *linkService) CreateLink(ctx context.Context, userID, workspaceID uuid.UUID, input models.CreateLinkInput) (*models.Link, error) {
@@ -145,6 +152,16 @@ func (s *linkService) CreateLink(ctx context.Context, userID, workspaceID uuid.U
 		s.logger.Warn("failed to publish link.created event", zap.Error(err))
 	}
 
+	// Audit log
+	s.auditLogger.Log(ctx, AuditEntry{
+		WorkspaceID:  workspaceID,
+		UserID:       userID,
+		Action:       "create",
+		ResourceType: "link",
+		ResourceID:   link.ID,
+		NewValues:    map[string]any{"url": link.URL, "short_code": link.ShortCode},
+	})
+
 	return link, nil
 }
 
@@ -218,6 +235,16 @@ func (s *linkService) UpdateLink(ctx context.Context, id, workspaceID uuid.UUID,
 		s.logger.Warn("failed to publish link.updated event", zap.Error(err))
 	}
 
+	// Audit log
+	s.auditLogger.Log(ctx, AuditEntry{
+		WorkspaceID:  workspaceID,
+		Action:       "update",
+		ResourceType: "link",
+		ResourceID:   id,
+		OldValues:    map[string]any{"url": existing.URL, "is_active": existing.IsActive},
+		NewValues:    map[string]any{"url": link.URL, "is_active": link.IsActive},
+	})
+
 	return link, nil
 }
 
@@ -239,6 +266,15 @@ func (s *linkService) DeleteLink(ctx context.Context, id, workspaceID uuid.UUID)
 	if err := s.events.Publish(ctx, "link.deleted", workspaceID, existing); err != nil {
 		s.logger.Warn("failed to publish link.deleted event", zap.Error(err))
 	}
+
+	// Audit log
+	s.auditLogger.Log(ctx, AuditEntry{
+		WorkspaceID:  workspaceID,
+		Action:       "delete",
+		ResourceType: "link",
+		ResourceID:   id,
+		OldValues:    map[string]any{"url": existing.URL, "short_code": existing.ShortCode},
+	})
 
 	return nil
 }
