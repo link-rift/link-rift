@@ -37,6 +37,9 @@ go.work.sum
 # Build output
 /bin/
 /dist/
+/api
+/redirect
+/worker
 
 # =============================================================================
 # Node.js / Frontend
