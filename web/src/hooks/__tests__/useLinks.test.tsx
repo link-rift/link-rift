@@ -1,9 +1,10 @@
-import { describe, it, expect, beforeAll, afterAll, afterEach } from "vitest"
+import { describe, it, expect, beforeAll, beforeEach, afterAll, afterEach } from "vitest"
 import { renderHook, waitFor } from "@testing-library/react"
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query"
 import { useLinks, useLink, useLinkStats } from "../useLinks"
+import { useWorkspaceStore } from "@/stores/workspaceStore"
 import { server } from "@/test/mocks/server"
-import { mockLink, mockLinks, mockStats } from "@/test/mocks/handlers"
+import { mockLink, mockLinks, mockStats, MOCK_WORKSPACE_ID } from "@/test/mocks/handlers"
 
 function createWrapper() {
   const queryClient = new QueryClient({
@@ -14,7 +15,25 @@ function createWrapper() {
   }
 }
 
-beforeAll(() => server.listen({ onUnhandledRequest: "error" }))
+beforeAll(() => server.listen({ onUnhandledRequest: "bypass" }))
+beforeEach(() => {
+  // Links hooks require a current workspace to be set (enabled: !!wsId)
+  useWorkspaceStore.setState({
+    currentWorkspace: {
+      id: MOCK_WORKSPACE_ID,
+      name: "Test Workspace",
+      slug: "test",
+      owner_id: "user-1",
+      plan: "free",
+      settings: null,
+      current_user_role: "owner",
+      created_at: "2025-01-01T00:00:00Z",
+      updated_at: "2025-01-01T00:00:00Z",
+    },
+    workspaces: [],
+    isLoading: false,
+  })
+})
 afterEach(() => server.resetHandlers())
 afterAll(() => server.close())
 

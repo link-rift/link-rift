@@ -161,6 +161,8 @@ func newTestDomainService(repo *mockDomainRepo, tier license.Tier, resolver DNSR
 		licManager:  licManager,
 		sslProvider: NewMockSSLProvider(),
 		dnsResolver: resolver,
+		events:      &noopEventPublisher{},
+		auditLogger: noopAuditLogger{},
 		cfg:         cfg,
 		logger:      logger,
 	}

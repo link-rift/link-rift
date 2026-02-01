@@ -161,11 +161,13 @@ func (m *mockCodeGen) GenerateWithLength(n int) string {
 func newTestService(linkRepo *mockLinkRepo, clickRepo *mockClickRepo, codeGen shortcode.Generator) *linkService {
 	logger, _ := zap.NewDevelopment()
 	return &linkService{
-		linkRepo:  linkRepo,
-		clickRepo: clickRepo,
-		cfg:       &config.Config{App: config.AppConfig{RedirectURL: "http://localhost:8081"}},
-		codeGen:   codeGen,
-		logger:    logger,
+		linkRepo:    linkRepo,
+		clickRepo:   clickRepo,
+		events:      &noopEventPublisher{},
+		auditLogger: noopAuditLogger{},
+		cfg:         &config.Config{App: config.AppConfig{RedirectURL: "http://localhost:8081"}},
+		codeGen:     codeGen,
+		logger:      logger,
 	}
 }
 

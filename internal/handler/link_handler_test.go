@@ -11,6 +11,7 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
 	"github.com/link-rift/link-rift/internal/models"
+	"github.com/link-rift/link-rift/internal/service"
 	"github.com/link-rift/link-rift/pkg/httputil"
 	"go.uber.org/zap"
 )
@@ -91,6 +92,8 @@ func (m *mockLinkService) VerifyLinkPassword(ctx context.Context, shortCode, pas
 	}
 	return false, nil
 }
+
+func (m *mockLinkService) SetAuditLogger(_ service.AuditLogger) {}
 
 // --- Test Router Setup ---
 

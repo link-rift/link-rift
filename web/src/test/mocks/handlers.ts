@@ -53,8 +53,12 @@ export const mockStats: LinkQuickStats = {
   created_at: "2025-01-15T10:00:00Z",
 }
 
+export const MOCK_WORKSPACE_ID = "00000000-0000-0000-0000-000000000000"
+
+const linksPath = `/api/v1/workspaces/:workspaceId/links`
+
 export const handlers = [
-  http.get("/api/v1/links", () => {
+  http.get(linksPath, () => {
     return HttpResponse.json({
       success: true,
       data: mockLinks,
@@ -62,7 +66,7 @@ export const handlers = [
     })
   }),
 
-  http.get("/api/v1/links/:id", ({ params }) => {
+  http.get(`${linksPath}/:id`, ({ params }) => {
     const link = mockLinks.find((l) => l.id === params.id)
     if (!link) {
       return HttpResponse.json(
@@ -73,7 +77,7 @@ export const handlers = [
     return HttpResponse.json({ success: true, data: link })
   }),
 
-  http.post("/api/v1/links", async ({ request }) => {
+  http.post(linksPath, async ({ request }) => {
     const body = (await request.json()) as Record<string, unknown>
     const newLink: Link = {
       ...mockLink,
@@ -88,7 +92,7 @@ export const handlers = [
     return HttpResponse.json({ success: true, data: newLink }, { status: 201 })
   }),
 
-  http.put("/api/v1/links/:id", async ({ params, request }) => {
+  http.put(`${linksPath}/:id`, async ({ params, request }) => {
     const body = (await request.json()) as Record<string, unknown>
     const link = mockLinks.find((l) => l.id === params.id)
     if (!link) {
@@ -103,7 +107,7 @@ export const handlers = [
     })
   }),
 
-  http.delete("/api/v1/links/:id", ({ params }) => {
+  http.delete(`${linksPath}/:id`, ({ params }) => {
     const link = mockLinks.find((l) => l.id === params.id)
     if (!link) {
       return HttpResponse.json(
@@ -114,11 +118,11 @@ export const handlers = [
     return HttpResponse.json({ success: true, data: { message: "Link deleted" } })
   }),
 
-  http.post("/api/v1/links/bulk", () => {
+  http.post(`${linksPath}/bulk`, () => {
     return HttpResponse.json({ success: true, data: [mockLink] }, { status: 201 })
   }),
 
-  http.get("/api/v1/links/:id/stats", ({ params }) => {
+  http.get(`${linksPath}/:id/stats`, ({ params }) => {
     const link = mockLinks.find((l) => l.id === params.id)
     if (!link) {
       return HttpResponse.json(

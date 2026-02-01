@@ -1,0 +1,37 @@
+{
+  "version": "1.0.0",
+  "date": "2026-02-01",
+  "redirect_service": {
+    "description": "High-performance redirect service (port 8081)",
+    "targets": {
+      "p50_ms": 10,
+      "p95_ms": 50,
+      "p99_ms": 100,
+      "success_rate": 0.99,
+      "error_rate": 0.01
+    },
+    "benchmarks": {
+      "resolver_cache_hit_ns": 109,
+      "l1_cache_get_ns": 41,
+      "l1_cache_miss_ns": 7,
+      "bot_detector_human_us": 56,
+      "bot_detector_bot_ns": 100,
+      "rule_engine_match_device_ns": 445,
+      "rule_engine_match_browser_ns": 459
+    }
+  },
+  "api_service": {
+    "description": "REST API service (port 8080)",
+    "targets": {
+      "p95_ms": 500,
+      "success_rate": 0.95,
+      "error_rate": 0.05
+    },
+    "endpoints": {
+      "GET /links": { "p50_ms": 50, "p95_ms": 200, "p99_ms": 500 },
+      "POST /links": { "p50_ms": 100, "p95_ms": 300, "p99_ms": 500 },
+      "GET /auth/me": { "p50_ms": 30, "p95_ms": 100, "p99_ms": 200 },
+      "GET /workspaces": { "p50_ms": 50, "p95_ms": 200, "p99_ms": 300 }
+    }
+  }
+}
