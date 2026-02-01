@@ -248,7 +248,9 @@ func main() {
 	apiKeyAuthMw := middleware.APIKeyAuth(apiKeyService, userRepo, workspaceRepo, memberRepo)
 
 	// Link routes now live under /api/v1/workspaces/:workspaceId/links
-	wsScoped := v1.Group("/workspaces/:workspaceId", authMw, wsAccessMw)
+	// apiKeyAuthMw runs first: if X-API-Key header is present it authenticates via API key,
+	// otherwise falls through to authMw which authenticates via session/token.
+	wsScoped := v1.Group("/workspaces/:workspaceId", apiKeyAuthMw, authMw, wsAccessMw)
 	editorMw := middleware.RequireWorkspaceRole(models.RoleEditor)
 	adminMw := middleware.RequireWorkspaceRole(models.RoleAdmin)
 	linkHandler.RegisterRoutes(wsScoped, editorMw)
@@ -262,10 +264,6 @@ func main() {
 	brandingHandler.RegisterRoutes(wsScoped, adminMw)
 	ssoHandler.RegisterAdminRoutes(wsScoped, adminMw)
 	scimHandler.RegisterAdminRoutes(wsScoped, adminMw)
-
-	// API key authenticated routes (alternative auth for programmatic access)
-	apiScoped := v1.Group("/workspaces/:workspaceId", apiKeyAuthMw, wsAccessMw)
-	linkHandler.RegisterRoutes(apiScoped, editorMw)
 
 	// Public SSO flow endpoints (no auth — these ARE the auth flow)
 	ssoHandler.RegisterPublicRoutes(v1)

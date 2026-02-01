@@ -19,6 +19,12 @@ const (
 
 func RequireAuth(tokenMaker paseto.Maker, userRepo repository.UserRepository) gin.HandlerFunc {
 	return func(c *gin.Context) {
+		// Skip if already authenticated (e.g. by API key middleware)
+		if _, exists := c.Get(contextKeyUser); exists {
+			c.Next()
+			return
+		}
+
 		token := extractBearerToken(c)
 		if token == "" {
 			c.AbortWithStatusJSON(http.StatusUnauthorized, httputil.Response{

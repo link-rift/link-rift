@@ -14,7 +14,7 @@ import (
 
 const createSession = `-- name: CreateSession :one
 INSERT INTO sessions (user_id, refresh_token_hash, ip_address, user_agent, device_name, expires_at)
-VALUES ($1, $2, $3, $4, $5, $6)
+VALUES ($1, $2, NULLIF($3, '')::inet, $4, $5, $6)
 RETURNING id, user_id, refresh_token_hash, ip_address, user_agent, device_name, is_revoked, last_active_at, created_at, expires_at
 `
 

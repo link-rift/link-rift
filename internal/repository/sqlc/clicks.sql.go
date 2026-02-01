@@ -81,7 +81,7 @@ INSERT INTO clicks (
     country_code, region, city, device_type, browser, browser_version,
     os, os_version, is_bot, utm_source, utm_medium, utm_campaign
 )
-VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18)
+VALUES ($1, $2, $3, NULLIF($4, '')::inet, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18)
 `
 
 type InsertClickParams struct {

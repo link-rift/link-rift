@@ -17,7 +17,7 @@ INSERT INTO audit_logs (
     workspace_id, user_id, action, resource_type, resource_id,
     old_values, new_values, metadata, ip_address, user_agent
 )
-VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
+VALUES ($1, $2, $3, $4, $5, $6, $7, $8, NULLIF($9, '')::inet, $10)
 `
 
 type CreateAuditLogParams struct {

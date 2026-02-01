@@ -7,6 +7,12 @@ services:
     ports:
       - "8080:8080"
     env_file: .env
+    environment:
+      DATABASE_URL: postgres://linkrift:linkrift_dev@postgres:5432/linkrift?sslmode=disable
+      REDIS_URL: redis://redis:6379
+      CLICKHOUSE_URL: http://clickhouse:8123
+      MEILISEARCH_URL: http://meilisearch:7700
+      SMTP_HOST: mailhog
     depends_on:
       postgres:
         condition: service_healthy
@@ -23,6 +29,10 @@ services:
     ports:
       - "8081:8081"
     env_file: .env
+    environment:
+      DATABASE_URL: postgres://linkrift:linkrift_dev@postgres:5432/linkrift?sslmode=disable
+      REDIS_URL: redis://redis:6379
+      CLICKHOUSE_URL: http://clickhouse:8123
     depends_on:
       postgres:
         condition: service_healthy
@@ -35,6 +45,12 @@ services:
       context: .
       dockerfile: docker/worker.Dockerfile
     env_file: .env
+    environment:
+      DATABASE_URL: postgres://linkrift:linkrift_dev@postgres:5432/linkrift?sslmode=disable
+      REDIS_URL: redis://redis:6379
+      CLICKHOUSE_URL: http://clickhouse:8123
+      MEILISEARCH_URL: http://meilisearch:7700
+      SMTP_HOST: mailhog
     depends_on:
       postgres:
         condition: service_healthy

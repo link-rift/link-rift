@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/link-rift/link-rift/internal/config"
 	"go.uber.org/zap"
@@ -25,6 +26,7 @@ func NewPostgres(cfg config.DatabaseConfig, logger *zap.Logger) (*PostgresDB, er
 	poolCfg.MinConns = int32(cfg.MaxIdleConns)
 	poolCfg.MaxConnLifetime = cfg.ConnMaxLifetime
 	poolCfg.MaxConnIdleTime = 5 * time.Minute
+	poolCfg.ConnConfig.DefaultQueryExecMode = pgx.QueryExecModeExec
 
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
