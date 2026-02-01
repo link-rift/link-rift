@@ -1,0 +1,3166 @@
+openapi: 3.1.0
+info:
+  title: Linkrift API
+  description: |
+    Enterprise-grade URL shortener with analytics, custom domains, and team collaboration.
+
+    ## Authentication
+
+    Linkrift supports two authentication methods:
+
+    - **Bearer Token (PASETO)**: Obtain tokens via `/auth/login` or `/auth/register`.
+      Pass in the `Authorization: Bearer <token>` header.
+    - **API Key**: Create API keys via the dashboard or API.
+      Pass in the `X-API-Key: <key>` header.
+
+    ## Response Format
+
+    All responses follow a consistent envelope:
+
+    ```json
+    {
+      "success": true,
+      "data": { ... }
+    }
+    ```
+
+    Error responses:
+
+    ```json
+    {
+      "success": false,
+      "error": {
+        "code": "ERROR_CODE",
+        "message": "Human-readable message"
+      }
+    }
+    ```
+
+    ## Workspace Scoping
+
+    Most endpoints are scoped to a workspace via the `workspaceId` path parameter.
+    Users must be members of the workspace with appropriate roles.
+
+    ## Rate Limiting
+
+    API requests are rate-limited. Rate limit headers are included in responses:
+    - `X-RateLimit-Limit`
+    - `X-RateLimit-Remaining`
+    - `X-RateLimit-Reset`
+  version: 1.0.0
+  contact:
+    name: Linkrift
+    url: https://linkrift.io
+  license:
+    name: AGPL-3.0
+    url: https://www.gnu.org/licenses/agpl-3.0.html
+
+servers:
+  - url: https://api.linkrift.io/api/v1
+    description: Production
+  - url: http://localhost:8080/api/v1
+    description: Local development
+
+tags:
+  - name: Auth
+    description: Authentication and session management
+  - name: Workspaces
+    description: Workspace management and team collaboration
+  - name: Links
+    description: URL shortening and link management
+  - name: Domains
+    description: Custom domain management
+  - name: QR Codes
+    description: QR code generation and customization
+  - name: Analytics
+    description: Click analytics and reporting
+  - name: Bio Pages
+    description: Link-in-bio page management
+  - name: API Keys
+    description: API key management for programmatic access
+  - name: Webhooks
+    description: Webhook management for event notifications
+  - name: License
+    description: Enterprise license management
+  - name: Audit Logs
+    description: Enterprise audit logging
+  - name: Branding
+    description: Enterprise white-label branding
+  - name: SSO
+    description: Enterprise SSO/SAML configuration
+  - name: SCIM
+    description: Enterprise SCIM 2.0 provisioning
+
+security:
+  - BearerAuth: []
+  - APIKeyAuth: []
+
+paths:
+  # ──────────────────────────────────────────────
+  # Auth
+  # ──────────────────────────────────────────────
+  /auth/register:
+    post:
+      tags: [Auth]
+      summary: Register a new user
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RegisterInput'
+      responses:
+        '201':
+          description: User created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AuthResponseEnvelope'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '409':
+          description: Email already registered
+
+  /auth/login:
+    post:
+      tags: [Auth]
+      summary: Login with email and password
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/LoginInput'
+      responses:
+        '200':
+          description: Login successful
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AuthResponseEnvelope'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  /auth/logout:
+    post:
+      tags: [Auth]
+      summary: Logout current session
+      responses:
+        '200':
+          $ref: '#/components/responses/MessageResponse'
+
+  /auth/refresh:
+    post:
+      tags: [Auth]
+      summary: Refresh access token
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [refresh_token]
+              properties:
+                refresh_token:
+                  type: string
+      responses:
+        '200':
+          description: Token refreshed
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AuthResponseEnvelope'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  /auth/me:
+    get:
+      tags: [Auth]
+      summary: Get current user
+      responses:
+        '200':
+          description: Current user info
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UserResponseEnvelope'
+
+  /auth/forgot-password:
+    post:
+      tags: [Auth]
+      summary: Request password reset email
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [email]
+              properties:
+                email:
+                  type: string
+                  format: email
+      responses:
+        '200':
+          $ref: '#/components/responses/MessageResponse'
+
+  /auth/reset-password:
+    post:
+      tags: [Auth]
+      summary: Reset password with token
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [token, password]
+              properties:
+                token:
+                  type: string
+                password:
+                  type: string
+                  minLength: 8
+      responses:
+        '200':
+          $ref: '#/components/responses/MessageResponse'
+
+  /auth/verify-email:
+    post:
+      tags: [Auth]
+      summary: Verify email address
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [token]
+              properties:
+                token:
+                  type: string
+      responses:
+        '200':
+          $ref: '#/components/responses/MessageResponse'
+
+  # ──────────────────────────────────────────────
+  # Workspaces
+  # ──────────────────────────────────────────────
+  /workspaces:
+    get:
+      tags: [Workspaces]
+      summary: List workspaces for current user
+      responses:
+        '200':
+          description: List of workspaces
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  data:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/WorkspaceResponse'
+    post:
+      tags: [Workspaces]
+      summary: Create a new workspace
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateWorkspaceInput'
+      responses:
+        '201':
+          description: Workspace created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/WorkspaceResponseEnvelope'
+
+  /workspaces/{workspaceId}:
+    parameters:
+      - $ref: '#/components/parameters/WorkspaceId'
+    get:
+      tags: [Workspaces]
+      summary: Get workspace details
+      responses:
+        '200':
+          description: Workspace details
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/WorkspaceResponseEnvelope'
+    put:
+      tags: [Workspaces]
+      summary: Update workspace (Admin+)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateWorkspaceInput'
+      responses:
+        '200':
+          description: Workspace updated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/WorkspaceResponseEnvelope'
+    delete:
+      tags: [Workspaces]
+      summary: Delete workspace (Owner only)
+      responses:
+        '200':
+          $ref: '#/components/responses/MessageResponse'
+
+  /workspaces/{workspaceId}/members:
+    parameters:
+      - $ref: '#/components/parameters/WorkspaceId'
+    get:
+      tags: [Workspaces]
+      summary: List workspace members
+      responses:
+        '200':
+          description: List of members
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  data:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/WorkspaceMember'
+    post:
+      tags: [Workspaces]
+      summary: Invite member (Admin+)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/InviteMemberInput'
+      responses:
+        '201':
+          description: Member invited
+
+  /workspaces/{workspaceId}/members/{userId}:
+    parameters:
+      - $ref: '#/components/parameters/WorkspaceId'
+      - name: userId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+    put:
+      tags: [Workspaces]
+      summary: Update member role (Admin+)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [role]
+              properties:
+                role:
+                  type: string
+                  enum: [owner, admin, editor, viewer]
+      responses:
+        '200':
+          description: Member role updated
+    delete:
+      tags: [Workspaces]
+      summary: Remove member (Admin+)
+      responses:
+        '200':
+          $ref: '#/components/responses/MessageResponse'
+
+  /workspaces/{workspaceId}/transfer:
+    parameters:
+      - $ref: '#/components/parameters/WorkspaceId'
+    post:
+      tags: [Workspaces]
+      summary: Transfer ownership (Owner only)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [new_owner_id]
+              properties:
+                new_owner_id:
+                  type: string
+                  format: uuid
+      responses:
+        '200':
+          $ref: '#/components/responses/MessageResponse'
+
+  # ──────────────────────────────────────────────
+  # Links
+  # ──────────────────────────────────────────────
+  /workspaces/{workspaceId}/links:
+    parameters:
+      - $ref: '#/components/parameters/WorkspaceId'
+    get:
+      tags: [Links]
+      summary: List links
+      parameters:
+        - name: search
+          in: query
+          schema:
+            type: string
+        - name: is_active
+          in: query
+          schema:
+            type: boolean
+        - $ref: '#/components/parameters/Limit'
+        - $ref: '#/components/parameters/Offset'
+      responses:
+        '200':
+          description: Paginated list of links
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/LinkListEnvelope'
+    post:
+      tags: [Links]
+      summary: Create a short link (Editor+)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateLinkInput'
+      responses:
+        '201':
+          description: Link created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/LinkResponseEnvelope'
+
+  /workspaces/{workspaceId}/links/bulk:
+    parameters:
+      - $ref: '#/components/parameters/WorkspaceId'
+    post:
+      tags: [Links]
+      summary: Bulk create links (Editor+, max 100)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [links]
+              properties:
+                links:
+                  type: array
+                  items:
+                    $ref: '#/components/schemas/CreateLinkInput'
+                  minItems: 1
+                  maxItems: 100
+      responses:
+        '201':
+          description: Links created
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  data:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/LinkResponse'
+
+  /workspaces/{workspaceId}/links/{id}:
+    parameters:
+      - $ref: '#/components/parameters/WorkspaceId'
+      - $ref: '#/components/parameters/ResourceId'
+    get:
+      tags: [Links]
+      summary: Get link details
+      responses:
+        '200':
+          description: Link details
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/LinkResponseEnvelope'
+    put:
+      tags: [Links]
+      summary: Update link (Editor+)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateLinkInput'
+      responses:
+        '200':
+          description: Link updated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/LinkResponseEnvelope'
+    delete:
+      tags: [Links]
+      summary: Delete link (Editor+)
+      responses:
+        '200':
+          $ref: '#/components/responses/MessageResponse'
+
+  /workspaces/{workspaceId}/links/{id}/stats:
+    parameters:
+      - $ref: '#/components/parameters/WorkspaceId'
+      - $ref: '#/components/parameters/ResourceId'
+    get:
+      tags: [Links]
+      summary: Get quick stats for a link
+      responses:
+        '200':
+          description: Link quick stats
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  data:
+                    $ref: '#/components/schemas/LinkQuickStats'
+
+  # ──────────────────────────────────────────────
+  # Domains
+  # ──────────────────────────────────────────────
+  /workspaces/{workspaceId}/domains:
+    parameters:
+      - $ref: '#/components/parameters/WorkspaceId'
+    get:
+      tags: [Domains]
+      summary: List custom domains
+      responses:
+        '200':
+          description: List of domains
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  data:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Domain'
+    post:
+      tags: [Domains]
+      summary: Add a custom domain (Editor+)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateDomainInput'
+      responses:
+        '201':
+          description: Domain added
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  data:
+                    $ref: '#/components/schemas/Domain'
+
+  /workspaces/{workspaceId}/domains/{id}:
+    parameters:
+      - $ref: '#/components/parameters/WorkspaceId'
+      - $ref: '#/components/parameters/ResourceId'
+    get:
+      tags: [Domains]
+      summary: Get domain details
+      responses:
+        '200':
+          description: Domain details
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  data:
+                    $ref: '#/components/schemas/Domain'
+    delete:
+      tags: [Domains]
+      summary: Remove domain (Editor+)
+      responses:
+        '200':
+          $ref: '#/components/responses/MessageResponse'
+
+  /workspaces/{workspaceId}/domains/{id}/verify:
+    parameters:
+      - $ref: '#/components/parameters/WorkspaceId'
+      - $ref: '#/components/parameters/ResourceId'
+    post:
+      tags: [Domains]
+      summary: Verify domain DNS (Editor+)
+      responses:
+        '200':
+          description: Domain verification result
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  data:
+                    $ref: '#/components/schemas/Domain'
+
+  /workspaces/{workspaceId}/domains/{id}/dns-records:
+    parameters:
+      - $ref: '#/components/parameters/WorkspaceId'
+      - $ref: '#/components/parameters/ResourceId'
+    get:
+      tags: [Domains]
+      summary: Get DNS record instructions
+      responses:
+        '200':
+          description: DNS record instructions
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  data:
+                    type: object
+                    properties:
+                      records:
+                        type: array
+                        items:
+                          $ref: '#/components/schemas/DNSRecordInstruction'
+
+  # ──────────────────────────────────────────────
+  # QR Codes
+  # ──────────────────────────────────────────────
+  /workspaces/{workspaceId}/links/{id}/qr:
+    parameters:
+      - $ref: '#/components/parameters/WorkspaceId'
+      - $ref: '#/components/parameters/ResourceId'
+    post:
+      tags: [QR Codes]
+      summary: Create QR code for link (Editor+)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateQRCodeInput'
+      responses:
+        '201':
+          description: QR code created
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  data:
+                    $ref: '#/components/schemas/QRCodeResponse'
+    get:
+      tags: [QR Codes]
+      summary: Get QR code for link
+      responses:
+        '200':
+          description: QR code details
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  data:
+                    $ref: '#/components/schemas/QRCodeResponse'
+
+  /workspaces/{workspaceId}/links/{id}/qr/download:
+    parameters:
+      - $ref: '#/components/parameters/WorkspaceId'
+      - $ref: '#/components/parameters/ResourceId'
+    get:
+      tags: [QR Codes]
+      summary: Download QR code image
+      parameters:
+        - name: format
+          in: query
+          schema:
+            type: string
+            enum: [png, svg, pdf]
+            default: png
+      responses:
+        '200':
+          description: QR code image
+          content:
+            image/png:
+              schema:
+                type: string
+                format: binary
+            image/svg+xml:
+              schema:
+                type: string
+            application/pdf:
+              schema:
+                type: string
+                format: binary
+
+  /workspaces/{workspaceId}/qr/bulk:
+    parameters:
+      - $ref: '#/components/parameters/WorkspaceId'
+    post:
+      tags: [QR Codes]
+      summary: Bulk generate QR codes (Editor+, max 50)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/BulkQRCodeInput'
+      responses:
+        '200':
+          description: ZIP file containing QR code images
+          content:
+            application/zip:
+              schema:
+                type: string
+                format: binary
+
+  /workspaces/{workspaceId}/qr/templates:
+    parameters:
+      - $ref: '#/components/parameters/WorkspaceId'
+    get:
+      tags: [QR Codes]
+      summary: Get QR code style templates
+      responses:
+        '200':
+          description: Available style templates
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  data:
+                    type: array
+                    items:
+                      type: object
+
+  # ──────────────────────────────────────────────
+  # Analytics
+  # ──────────────────────────────────────────────
+  /workspaces/{workspaceId}/analytics/links/{id}:
+    parameters:
+      - $ref: '#/components/parameters/WorkspaceId'
+      - $ref: '#/components/parameters/ResourceId'
+    get:
+      tags: [Analytics]
+      summary: Get link analytics summary
+      parameters:
+        - $ref: '#/components/parameters/DateRange'
+        - $ref: '#/components/parameters/StartDate'
+        - $ref: '#/components/parameters/EndDate'
+      responses:
+        '200':
+          description: Link analytics
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  data:
+                    $ref: '#/components/schemas/LinkAnalytics'
+
+  /workspaces/{workspaceId}/analytics/links/{id}/timeseries:
+    parameters:
+      - $ref: '#/components/parameters/WorkspaceId'
+      - $ref: '#/components/parameters/ResourceId'
+    get:
+      tags: [Analytics]
+      summary: Get click time series
+      parameters:
+        - $ref: '#/components/parameters/DateRange'
+        - $ref: '#/components/parameters/StartDate'
+        - $ref: '#/components/parameters/EndDate'
+        - name: interval
+          in: query
+          schema:
+            type: string
+            enum: [hour, day, week, month]
+            default: day
+      responses:
+        '200':
+          description: Time series data
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  data:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/TimeSeriesPoint'
+
+  /workspaces/{workspaceId}/analytics/links/{id}/referrers:
+    parameters:
+      - $ref: '#/components/parameters/WorkspaceId'
+      - $ref: '#/components/parameters/ResourceId'
+    get:
+      tags: [Analytics]
+      summary: Get referrer breakdown
+      parameters:
+        - $ref: '#/components/parameters/DateRange'
+        - $ref: '#/components/parameters/StartDate'
+        - $ref: '#/components/parameters/EndDate'
+        - $ref: '#/components/parameters/AnalyticsLimit'
+      responses:
+        '200':
+          description: Referrer stats
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  data:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/ReferrerStats'
+
+  /workspaces/{workspaceId}/analytics/links/{id}/countries:
+    parameters:
+      - $ref: '#/components/parameters/WorkspaceId'
+      - $ref: '#/components/parameters/ResourceId'
+    get:
+      tags: [Analytics]
+      summary: Get country breakdown
+      parameters:
+        - $ref: '#/components/parameters/DateRange'
+        - $ref: '#/components/parameters/StartDate'
+        - $ref: '#/components/parameters/EndDate'
+        - $ref: '#/components/parameters/AnalyticsLimit'
+      responses:
+        '200':
+          description: Country stats
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  data:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/CountryStats'
+
+  /workspaces/{workspaceId}/analytics/links/{id}/devices:
+    parameters:
+      - $ref: '#/components/parameters/WorkspaceId'
+      - $ref: '#/components/parameters/ResourceId'
+    get:
+      tags: [Analytics]
+      summary: Get device breakdown
+      parameters:
+        - $ref: '#/components/parameters/DateRange'
+        - $ref: '#/components/parameters/StartDate'
+        - $ref: '#/components/parameters/EndDate'
+      responses:
+        '200':
+          description: Device breakdown
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  data:
+                    $ref: '#/components/schemas/DeviceBreakdown'
+
+  /workspaces/{workspaceId}/analytics/links/{id}/browsers:
+    parameters:
+      - $ref: '#/components/parameters/WorkspaceId'
+      - $ref: '#/components/parameters/ResourceId'
+    get:
+      tags: [Analytics]
+      summary: Get browser breakdown
+      parameters:
+        - $ref: '#/components/parameters/DateRange'
+        - $ref: '#/components/parameters/StartDate'
+        - $ref: '#/components/parameters/EndDate'
+        - $ref: '#/components/parameters/AnalyticsLimit'
+      responses:
+        '200':
+          description: Browser stats
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  data:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/BrowserStats'
+
+  /workspaces/{workspaceId}/analytics/workspace:
+    parameters:
+      - $ref: '#/components/parameters/WorkspaceId'
+    get:
+      tags: [Analytics]
+      summary: Get workspace-wide analytics
+      parameters:
+        - $ref: '#/components/parameters/DateRange'
+        - $ref: '#/components/parameters/StartDate'
+        - $ref: '#/components/parameters/EndDate'
+      responses:
+        '200':
+          description: Workspace analytics
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  data:
+                    $ref: '#/components/schemas/WorkspaceAnalytics'
+
+  /workspaces/{workspaceId}/analytics/export:
+    parameters:
+      - $ref: '#/components/parameters/WorkspaceId'
+    get:
+      tags: [Analytics]
+      summary: Export analytics data
+      parameters:
+        - name: link_id
+          in: query
+          schema:
+            type: string
+            format: uuid
+        - name: format
+          in: query
+          schema:
+            type: string
+            enum: [csv, json]
+            default: csv
+        - $ref: '#/components/parameters/DateRange'
+        - $ref: '#/components/parameters/StartDate'
+        - $ref: '#/components/parameters/EndDate'
+      responses:
+        '200':
+          description: Export file
+          content:
+            text/csv:
+              schema:
+                type: string
+            application/json:
+              schema:
+                type: array
+                items:
+                  type: object
+
+  # ──────────────────────────────────────────────
+  # Bio Pages
+  # ──────────────────────────────────────────────
+  /workspaces/{workspaceId}/bio-pages:
+    parameters:
+      - $ref: '#/components/parameters/WorkspaceId'
+    get:
+      tags: [Bio Pages]
+      summary: List bio pages
+      responses:
+        '200':
+          description: List of bio pages
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  data:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/BioPage'
+    post:
+      tags: [Bio Pages]
+      summary: Create bio page (Editor+)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateBioPageInput'
+      responses:
+        '201':
+          description: Bio page created
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  data:
+                    $ref: '#/components/schemas/BioPage'
+
+  /workspaces/{workspaceId}/bio-pages/{id}:
+    parameters:
+      - $ref: '#/components/parameters/WorkspaceId'
+      - $ref: '#/components/parameters/ResourceId'
+    get:
+      tags: [Bio Pages]
+      summary: Get bio page
+      responses:
+        '200':
+          description: Bio page details
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  data:
+                    $ref: '#/components/schemas/BioPage'
+    put:
+      tags: [Bio Pages]
+      summary: Update bio page (Editor+)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateBioPageInput'
+      responses:
+        '200':
+          description: Bio page updated
+    delete:
+      tags: [Bio Pages]
+      summary: Delete bio page (Editor+)
+      responses:
+        '200':
+          $ref: '#/components/responses/MessageResponse'
+
+  /workspaces/{workspaceId}/bio-pages/{id}/publish:
+    parameters:
+      - $ref: '#/components/parameters/WorkspaceId'
+      - $ref: '#/components/parameters/ResourceId'
+    post:
+      tags: [Bio Pages]
+      summary: Publish bio page (Editor+)
+      responses:
+        '200':
+          description: Bio page published
+
+  /workspaces/{workspaceId}/bio-pages/{id}/unpublish:
+    parameters:
+      - $ref: '#/components/parameters/WorkspaceId'
+      - $ref: '#/components/parameters/ResourceId'
+    post:
+      tags: [Bio Pages]
+      summary: Unpublish bio page (Editor+)
+      responses:
+        '200':
+          description: Bio page unpublished
+
+  /workspaces/{workspaceId}/bio-pages/{id}/links:
+    parameters:
+      - $ref: '#/components/parameters/WorkspaceId'
+      - $ref: '#/components/parameters/ResourceId'
+    get:
+      tags: [Bio Pages]
+      summary: List bio page links
+      responses:
+        '200':
+          description: List of links
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  data:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/BioPageLink'
+    post:
+      tags: [Bio Pages]
+      summary: Add link to bio page (Editor+)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateBioPageLinkInput'
+      responses:
+        '201':
+          description: Link added
+
+  /workspaces/{workspaceId}/bio-pages/{id}/links/{linkId}:
+    parameters:
+      - $ref: '#/components/parameters/WorkspaceId'
+      - $ref: '#/components/parameters/ResourceId'
+      - name: linkId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+    put:
+      tags: [Bio Pages]
+      summary: Update bio page link (Editor+)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateBioPageLinkInput'
+      responses:
+        '200':
+          description: Link updated
+    delete:
+      tags: [Bio Pages]
+      summary: Delete bio page link (Editor+)
+      responses:
+        '200':
+          $ref: '#/components/responses/MessageResponse'
+
+  /workspaces/{workspaceId}/bio-pages/{id}/links/reorder:
+    parameters:
+      - $ref: '#/components/parameters/WorkspaceId'
+      - $ref: '#/components/parameters/ResourceId'
+    post:
+      tags: [Bio Pages]
+      summary: Reorder bio page links (Editor+)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [link_ids]
+              properties:
+                link_ids:
+                  type: array
+                  items:
+                    type: string
+                    format: uuid
+      responses:
+        '200':
+          $ref: '#/components/responses/MessageResponse'
+
+  /workspaces/{workspaceId}/bio-themes:
+    parameters:
+      - $ref: '#/components/parameters/WorkspaceId'
+    get:
+      tags: [Bio Pages]
+      summary: List available themes
+      responses:
+        '200':
+          description: List of themes
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  data:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/BioPageTheme'
+
+  # ──────────────────────────────────────────────
+  # API Keys
+  # ──────────────────────────────────────────────
+  /workspaces/{workspaceId}/api-keys:
+    parameters:
+      - $ref: '#/components/parameters/WorkspaceId'
+    get:
+      tags: [API Keys]
+      summary: List API keys
+      responses:
+        '200':
+          description: List of API keys
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  data:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/APIKey'
+    post:
+      tags: [API Keys]
+      summary: Create API key (Admin+)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateAPIKeyInput'
+      responses:
+        '201':
+          description: API key created (key shown once)
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  data:
+                    $ref: '#/components/schemas/CreateAPIKeyResponse'
+
+  /workspaces/{workspaceId}/api-keys/{id}:
+    parameters:
+      - $ref: '#/components/parameters/WorkspaceId'
+      - $ref: '#/components/parameters/ResourceId'
+    delete:
+      tags: [API Keys]
+      summary: Revoke API key (Admin+)
+      responses:
+        '200':
+          $ref: '#/components/responses/MessageResponse'
+
+  # ──────────────────────────────────────────────
+  # Webhooks
+  # ──────────────────────────────────────────────
+  /workspaces/{workspaceId}/webhooks:
+    parameters:
+      - $ref: '#/components/parameters/WorkspaceId'
+    get:
+      tags: [Webhooks]
+      summary: List webhooks
+      responses:
+        '200':
+          description: List of webhooks
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  data:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Webhook'
+    post:
+      tags: [Webhooks]
+      summary: Create webhook (Admin+)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateWebhookInput'
+      responses:
+        '201':
+          description: Webhook created (secret shown once)
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  data:
+                    $ref: '#/components/schemas/CreateWebhookResponse'
+
+  /workspaces/{workspaceId}/webhooks/{id}:
+    parameters:
+      - $ref: '#/components/parameters/WorkspaceId'
+      - $ref: '#/components/parameters/ResourceId'
+    delete:
+      tags: [Webhooks]
+      summary: Delete webhook (Admin+)
+      responses:
+        '200':
+          $ref: '#/components/responses/MessageResponse'
+
+  /workspaces/{workspaceId}/webhooks/{id}/deliveries:
+    parameters:
+      - $ref: '#/components/parameters/WorkspaceId'
+      - $ref: '#/components/parameters/ResourceId'
+    get:
+      tags: [Webhooks]
+      summary: List webhook deliveries
+      parameters:
+        - $ref: '#/components/parameters/Limit'
+        - $ref: '#/components/parameters/Offset'
+      responses:
+        '200':
+          description: List of deliveries
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  data:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/WebhookDelivery'
+                  total:
+                    type: integer
+
+  # ──────────────────────────────────────────────
+  # License (Enterprise)
+  # ──────────────────────────────────────────────
+  /license:
+    get:
+      tags: [License]
+      summary: Get current license info
+      responses:
+        '200':
+          description: License information
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  data:
+                    $ref: '#/components/schemas/LicenseResponse'
+    post:
+      tags: [License]
+      summary: Activate enterprise license
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [license_key]
+              properties:
+                license_key:
+                  type: string
+      responses:
+        '200':
+          description: License activated
+    delete:
+      tags: [License]
+      summary: Deactivate license
+      responses:
+        '200':
+          $ref: '#/components/responses/MessageResponse'
+
+  # ──────────────────────────────────────────────
+  # Audit Logs (Enterprise)
+  # ──────────────────────────────────────────────
+  /workspaces/{workspaceId}/audit-logs:
+    parameters:
+      - $ref: '#/components/parameters/WorkspaceId'
+    get:
+      tags: [Audit Logs]
+      summary: List audit logs (Admin+)
+      parameters:
+        - name: action
+          in: query
+          schema:
+            type: string
+        - name: resource_type
+          in: query
+          schema:
+            type: string
+        - name: user_id
+          in: query
+          schema:
+            type: string
+            format: uuid
+        - name: start_date
+          in: query
+          schema:
+            type: string
+            format: date-time
+        - name: end_date
+          in: query
+          schema:
+            type: string
+            format: date-time
+        - $ref: '#/components/parameters/Limit'
+        - $ref: '#/components/parameters/Offset'
+      responses:
+        '200':
+          description: Paginated audit logs
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  data:
+                    type: object
+                    properties:
+                      audit_logs:
+                        type: array
+                        items:
+                          $ref: '#/components/schemas/AuditLog'
+                      total:
+                        type: integer
+        '402':
+          description: Enterprise feature required
+
+  /workspaces/{workspaceId}/audit-logs/{id}:
+    parameters:
+      - $ref: '#/components/parameters/WorkspaceId'
+      - $ref: '#/components/parameters/ResourceId'
+    get:
+      tags: [Audit Logs]
+      summary: Get audit log entry (Admin+)
+      responses:
+        '200':
+          description: Audit log entry
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  data:
+                    $ref: '#/components/schemas/AuditLog'
+
+  /workspaces/{workspaceId}/audit-logs/export:
+    parameters:
+      - $ref: '#/components/parameters/WorkspaceId'
+    get:
+      tags: [Audit Logs]
+      summary: Export audit logs (Admin+)
+      parameters:
+        - name: format
+          in: query
+          schema:
+            type: string
+            enum: [csv, json]
+            default: csv
+        - name: action
+          in: query
+          schema:
+            type: string
+        - name: resource_type
+          in: query
+          schema:
+            type: string
+        - name: start_date
+          in: query
+          schema:
+            type: string
+            format: date-time
+        - name: end_date
+          in: query
+          schema:
+            type: string
+            format: date-time
+      responses:
+        '200':
+          description: Export file
+          content:
+            text/csv:
+              schema:
+                type: string
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/AuditLog'
+
+  # ──────────────────────────────────────────────
+  # Branding (Enterprise)
+  # ──────────────────────────────────────────────
+  /workspaces/{workspaceId}/branding:
+    parameters:
+      - $ref: '#/components/parameters/WorkspaceId'
+    get:
+      tags: [Branding]
+      summary: Get workspace branding (Admin+)
+      responses:
+        '200':
+          description: Branding settings
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  data:
+                    $ref: '#/components/schemas/WorkspaceBranding'
+        '402':
+          description: Enterprise feature required
+    put:
+      tags: [Branding]
+      summary: Update branding (Admin+)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateBrandingInput'
+      responses:
+        '200':
+          description: Branding updated
+    delete:
+      tags: [Branding]
+      summary: Delete branding (Admin+)
+      responses:
+        '200':
+          $ref: '#/components/responses/MessageResponse'
+
+  # ──────────────────────────────────────────────
+  # SSO (Enterprise)
+  # ──────────────────────────────────────────────
+  /workspaces/{workspaceId}/sso:
+    parameters:
+      - $ref: '#/components/parameters/WorkspaceId'
+    get:
+      tags: [SSO]
+      summary: Get SSO configuration (Admin+)
+      responses:
+        '200':
+          description: SSO config
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  data:
+                    $ref: '#/components/schemas/SSOConfig'
+        '402':
+          description: Enterprise feature required
+    post:
+      tags: [SSO]
+      summary: Create SSO configuration (Admin+)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateSSOConfigInput'
+      responses:
+        '201':
+          description: SSO config created
+    put:
+      tags: [SSO]
+      summary: Update SSO configuration (Admin+)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateSSOConfigInput'
+      responses:
+        '200':
+          description: SSO config updated
+    delete:
+      tags: [SSO]
+      summary: Delete SSO configuration (Admin+)
+      responses:
+        '200':
+          $ref: '#/components/responses/MessageResponse'
+
+  /workspaces/{workspaceId}/sso/identities:
+    parameters:
+      - $ref: '#/components/parameters/WorkspaceId'
+    get:
+      tags: [SSO]
+      summary: List SSO identities (Admin+)
+      responses:
+        '200':
+          description: List of SSO identities
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  data:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/SSOIdentity'
+
+  # SSO public flow endpoints (no auth)
+  /auth/sso/metadata/{workspaceId}:
+    parameters:
+      - $ref: '#/components/parameters/WorkspaceId'
+    get:
+      tags: [SSO]
+      summary: Get SAML SP metadata XML
+      security: []
+      responses:
+        '200':
+          description: SAML metadata XML
+          content:
+            application/xml:
+              schema:
+                type: string
+
+  /auth/sso/login/{workspaceId}:
+    parameters:
+      - $ref: '#/components/parameters/WorkspaceId'
+    get:
+      tags: [SSO]
+      summary: Initiate SSO login (redirects to IdP)
+      security: []
+      responses:
+        '302':
+          description: Redirect to Identity Provider
+
+  /auth/sso/callback/{workspaceId}:
+    parameters:
+      - $ref: '#/components/parameters/WorkspaceId'
+    post:
+      tags: [SSO]
+      summary: SSO callback (ACS endpoint)
+      security: []
+      requestBody:
+        content:
+          application/x-www-form-urlencoded:
+            schema:
+              type: object
+              properties:
+                SAMLResponse:
+                  type: string
+      responses:
+        '302':
+          description: Redirect to frontend with tokens
+
+  # ──────────────────────────────────────────────
+  # SCIM (Enterprise)
+  # ──────────────────────────────────────────────
+  /workspaces/{workspaceId}/scim/tokens:
+    parameters:
+      - $ref: '#/components/parameters/WorkspaceId'
+    get:
+      tags: [SCIM]
+      summary: List SCIM tokens (Admin+)
+      responses:
+        '200':
+          description: List of SCIM tokens
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  data:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/SCIMToken'
+    post:
+      tags: [SCIM]
+      summary: Create SCIM token (Admin+)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateSCIMTokenInput'
+      responses:
+        '201':
+          description: SCIM token created (shown once)
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  data:
+                    $ref: '#/components/schemas/CreateSCIMTokenResponse'
+
+  /workspaces/{workspaceId}/scim/tokens/{tokenId}:
+    parameters:
+      - $ref: '#/components/parameters/WorkspaceId'
+      - name: tokenId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+    delete:
+      tags: [SCIM]
+      summary: Revoke SCIM token (Admin+)
+      responses:
+        '200':
+          $ref: '#/components/responses/MessageResponse'
+
+  /workspaces/{workspaceId}/scim/sync-logs:
+    parameters:
+      - $ref: '#/components/parameters/WorkspaceId'
+    get:
+      tags: [SCIM]
+      summary: List SCIM sync logs (Admin+)
+      parameters:
+        - $ref: '#/components/parameters/Limit'
+        - $ref: '#/components/parameters/Offset'
+      responses:
+        '200':
+          description: Sync log entries
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  data:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/SCIMSyncLog'
+
+# ──────────────────────────────────────────────
+# Components
+# ──────────────────────────────────────────────
+components:
+  securitySchemes:
+    BearerAuth:
+      type: http
+      scheme: bearer
+      description: PASETO V4 Local token from /auth/login or /auth/register
+    APIKeyAuth:
+      type: apiKey
+      in: header
+      name: X-API-Key
+      description: API key created via the dashboard
+
+  parameters:
+    WorkspaceId:
+      name: workspaceId
+      in: path
+      required: true
+      schema:
+        type: string
+        format: uuid
+    ResourceId:
+      name: id
+      in: path
+      required: true
+      schema:
+        type: string
+        format: uuid
+    Limit:
+      name: limit
+      in: query
+      schema:
+        type: integer
+        minimum: 1
+        maximum: 100
+        default: 20
+    Offset:
+      name: offset
+      in: query
+      schema:
+        type: integer
+        minimum: 0
+        default: 0
+    DateRange:
+      name: range
+      in: query
+      description: Predefined date range
+      schema:
+        type: string
+        enum: [24h, 7d, 30d, 90d]
+    StartDate:
+      name: start
+      in: query
+      schema:
+        type: string
+        format: date-time
+    EndDate:
+      name: end
+      in: query
+      schema:
+        type: string
+        format: date-time
+    AnalyticsLimit:
+      name: limit
+      in: query
+      schema:
+        type: integer
+        default: 10
+
+  responses:
+    MessageResponse:
+      description: Success message
+      content:
+        application/json:
+          schema:
+            type: object
+            properties:
+              success:
+                type: boolean
+                example: true
+              message:
+                type: string
+    BadRequest:
+      description: Invalid request
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+    Unauthorized:
+      description: Authentication required
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+    NotFound:
+      description: Resource not found
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+
+  schemas:
+    # ── Error ──
+    ErrorResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+          example: false
+        error:
+          type: object
+          properties:
+            code:
+              type: string
+            message:
+              type: string
+
+    # ── Auth ──
+    RegisterInput:
+      type: object
+      required: [email, password, name]
+      properties:
+        email:
+          type: string
+          format: email
+        password:
+          type: string
+          minLength: 8
+        name:
+          type: string
+
+    LoginInput:
+      type: object
+      required: [email, password]
+      properties:
+        email:
+          type: string
+          format: email
+        password:
+          type: string
+
+    AuthResponse:
+      type: object
+      properties:
+        access_token:
+          type: string
+        refresh_token:
+          type: string
+        token_type:
+          type: string
+          example: Bearer
+        expires_at:
+          type: string
+          format: date-time
+        user:
+          $ref: '#/components/schemas/UserResponse'
+
+    AuthResponseEnvelope:
+      type: object
+      properties:
+        success:
+          type: boolean
+        data:
+          $ref: '#/components/schemas/AuthResponse'
+
+    UserResponse:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        email:
+          type: string
+          format: email
+        name:
+          type: string
+        avatar_url:
+          type: string
+          nullable: true
+        email_verified_at:
+          type: string
+          format: date-time
+          nullable: true
+        two_factor_enabled:
+          type: boolean
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+
+    UserResponseEnvelope:
+      type: object
+      properties:
+        success:
+          type: boolean
+        data:
+          $ref: '#/components/schemas/UserResponse'
+
+    # ── Workspace ──
+    WorkspaceResponse:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        name:
+          type: string
+        slug:
+          type: string
+        owner_id:
+          type: string
+          format: uuid
+        plan:
+          type: string
+        settings:
+          type: object
+        member_count:
+          type: integer
+        current_user_role:
+          type: string
+          enum: [owner, admin, editor, viewer]
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+
+    WorkspaceResponseEnvelope:
+      type: object
+      properties:
+        success:
+          type: boolean
+        data:
+          $ref: '#/components/schemas/WorkspaceResponse'
+
+    CreateWorkspaceInput:
+      type: object
+      required: [name, slug]
+      properties:
+        name:
+          type: string
+          minLength: 1
+          maxLength: 100
+        slug:
+          type: string
+          minLength: 1
+          maxLength: 100
+          pattern: '^[a-zA-Z0-9-]+$'
+
+    UpdateWorkspaceInput:
+      type: object
+      properties:
+        name:
+          type: string
+          minLength: 1
+          maxLength: 100
+        slug:
+          type: string
+          minLength: 1
+          maxLength: 100
+
+    WorkspaceMember:
+      type: object
+      properties:
+        user_id:
+          type: string
+          format: uuid
+        workspace_id:
+          type: string
+          format: uuid
+        role:
+          type: string
+          enum: [owner, admin, editor, viewer]
+        user:
+          $ref: '#/components/schemas/UserResponse'
+        joined_at:
+          type: string
+          format: date-time
+
+    InviteMemberInput:
+      type: object
+      required: [email, role]
+      properties:
+        email:
+          type: string
+          format: email
+        role:
+          type: string
+          enum: [admin, editor, viewer]
+
+    # ── Link ──
+    LinkResponse:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        user_id:
+          type: string
+          format: uuid
+        workspace_id:
+          type: string
+          format: uuid
+        domain_id:
+          type: string
+          format: uuid
+          nullable: true
+        url:
+          type: string
+          format: uri
+        short_code:
+          type: string
+        short_url:
+          type: string
+          format: uri
+        title:
+          type: string
+          nullable: true
+        description:
+          type: string
+          nullable: true
+        favicon_url:
+          type: string
+          nullable: true
+        og_image_url:
+          type: string
+          nullable: true
+        is_active:
+          type: boolean
+        has_password:
+          type: boolean
+        expires_at:
+          type: string
+          format: date-time
+          nullable: true
+        max_clicks:
+          type: integer
+          nullable: true
+        utm_source:
+          type: string
+          nullable: true
+        utm_medium:
+          type: string
+          nullable: true
+        utm_campaign:
+          type: string
+          nullable: true
+        utm_term:
+          type: string
+          nullable: true
+        utm_content:
+          type: string
+          nullable: true
+        total_clicks:
+          type: integer
+        unique_clicks:
+          type: integer
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+
+    LinkResponseEnvelope:
+      type: object
+      properties:
+        success:
+          type: boolean
+        data:
+          $ref: '#/components/schemas/LinkResponse'
+
+    LinkListEnvelope:
+      type: object
+      properties:
+        success:
+          type: boolean
+        data:
+          type: object
+          properties:
+            links:
+              type: array
+              items:
+                $ref: '#/components/schemas/LinkResponse'
+            total:
+              type: integer
+
+    CreateLinkInput:
+      type: object
+      required: [url]
+      properties:
+        url:
+          type: string
+          format: uri
+        short_code:
+          type: string
+          description: Custom short code (auto-generated if omitted)
+        title:
+          type: string
+        description:
+          type: string
+        password:
+          type: string
+        expires_at:
+          type: string
+          format: date-time
+        max_clicks:
+          type: integer
+        utm_source:
+          type: string
+        utm_medium:
+          type: string
+        utm_campaign:
+          type: string
+        utm_term:
+          type: string
+        utm_content:
+          type: string
+
+    UpdateLinkInput:
+      type: object
+      properties:
+        url:
+          type: string
+          format: uri
+        title:
+          type: string
+        description:
+          type: string
+        is_active:
+          type: boolean
+        password:
+          type: string
+        expires_at:
+          type: string
+          format: date-time
+        max_clicks:
+          type: integer
+
+    LinkQuickStats:
+      type: object
+      properties:
+        total_clicks:
+          type: integer
+        unique_clicks:
+          type: integer
+        clicks_24h:
+          type: integer
+        clicks_7d:
+          type: integer
+        created_at:
+          type: string
+          format: date-time
+
+    # ── Domain ──
+    Domain:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        workspace_id:
+          type: string
+          format: uuid
+        domain:
+          type: string
+        is_verified:
+          type: boolean
+        verified_at:
+          type: string
+          format: date-time
+          nullable: true
+        ssl_status:
+          type: string
+        ssl_expires_at:
+          type: string
+          format: date-time
+          nullable: true
+        default_redirect_url:
+          type: string
+          nullable: true
+        custom_404_url:
+          type: string
+          nullable: true
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+
+    CreateDomainInput:
+      type: object
+      required: [domain]
+      properties:
+        domain:
+          type: string
+          example: links.example.com
+
+    DNSRecordInstruction:
+      type: object
+      properties:
+        type:
+          type: string
+          example: CNAME
+        host:
+          type: string
+        value:
+          type: string
+
+    # ── QR Code ──
+    QRCodeResponse:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        link_id:
+          type: string
+          format: uuid
+        qr_type:
+          type: string
+        error_correction:
+          type: string
+          enum: [L, M, Q, H]
+        foreground_color:
+          type: string
+        background_color:
+          type: string
+        logo_url:
+          type: string
+          nullable: true
+        png_url:
+          type: string
+          nullable: true
+        svg_url:
+          type: string
+          nullable: true
+        dot_style:
+          type: string
+        corner_style:
+          type: string
+        size:
+          type: integer
+        margin:
+          type: integer
+        scan_count:
+          type: integer
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+
+    CreateQRCodeInput:
+      type: object
+      properties:
+        qr_type:
+          type: string
+        error_correction:
+          type: string
+          enum: [L, M, Q, H]
+        foreground_color:
+          type: string
+          example: '#000000'
+        background_color:
+          type: string
+          example: '#FFFFFF'
+        logo_url:
+          type: string
+        dot_style:
+          type: string
+          enum: [square, rounded, dots, classy, classy-rounded]
+        corner_style:
+          type: string
+          enum: [square, rounded, dot]
+        size:
+          type: integer
+          default: 300
+        margin:
+          type: integer
+          default: 10
+
+    BulkQRCodeInput:
+      type: object
+      required: [link_ids, options]
+      properties:
+        link_ids:
+          type: array
+          items:
+            type: string
+            format: uuid
+          minItems: 1
+          maxItems: 50
+        options:
+          $ref: '#/components/schemas/CreateQRCodeInput'
+
+    # ── Analytics ──
+    LinkAnalytics:
+      type: object
+      properties:
+        total_clicks:
+          type: integer
+        unique_clicks:
+          type: integer
+        clicks_24h:
+          type: integer
+        clicks_7d:
+          type: integer
+        clicks_30d:
+          type: integer
+
+    WorkspaceAnalytics:
+      type: object
+      properties:
+        total_links:
+          type: integer
+        total_clicks:
+          type: integer
+        unique_clicks:
+          type: integer
+        clicks_24h:
+          type: integer
+        clicks_7d:
+          type: integer
+        clicks_30d:
+          type: integer
+        top_links:
+          type: array
+          items:
+            type: object
+            properties:
+              link_id:
+                type: string
+                format: uuid
+              short_code:
+                type: string
+              total_clicks:
+                type: integer
+
+    TimeSeriesPoint:
+      type: object
+      properties:
+        timestamp:
+          type: string
+          format: date-time
+        clicks:
+          type: integer
+        unique:
+          type: integer
+
+    ReferrerStats:
+      type: object
+      properties:
+        referrer:
+          type: string
+        clicks:
+          type: integer
+        percent:
+          type: number
+          format: float
+
+    CountryStats:
+      type: object
+      properties:
+        country_code:
+          type: string
+        country:
+          type: string
+        clicks:
+          type: integer
+        percent:
+          type: number
+          format: float
+
+    DeviceBreakdown:
+      type: object
+      properties:
+        desktop:
+          type: integer
+        mobile:
+          type: integer
+        tablet:
+          type: integer
+        other:
+          type: integer
+
+    BrowserStats:
+      type: object
+      properties:
+        browser:
+          type: string
+        clicks:
+          type: integer
+        percent:
+          type: number
+          format: float
+
+    # ── Bio Page ──
+    BioPage:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        workspace_id:
+          type: string
+          format: uuid
+        slug:
+          type: string
+        title:
+          type: string
+        bio:
+          type: string
+          nullable: true
+        avatar_url:
+          type: string
+          nullable: true
+        theme_id:
+          type: string
+          format: uuid
+          nullable: true
+        custom_css:
+          type: string
+          nullable: true
+        meta_title:
+          type: string
+          nullable: true
+        meta_description:
+          type: string
+          nullable: true
+        og_image_url:
+          type: string
+          nullable: true
+        is_published:
+          type: boolean
+        link_count:
+          type: integer
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+        links:
+          type: array
+          items:
+            $ref: '#/components/schemas/BioPageLink'
+
+    BioPageLink:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        bio_page_id:
+          type: string
+          format: uuid
+        title:
+          type: string
+        url:
+          type: string
+          format: uri
+        icon:
+          type: string
+          nullable: true
+        position:
+          type: integer
+        is_visible:
+          type: boolean
+        visible_from:
+          type: string
+          format: date-time
+          nullable: true
+        visible_until:
+          type: string
+          format: date-time
+          nullable: true
+        click_count:
+          type: integer
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+
+    CreateBioPageInput:
+      type: object
+      required: [title, slug]
+      properties:
+        title:
+          type: string
+        slug:
+          type: string
+        bio:
+          type: string
+        avatar_url:
+          type: string
+        theme_id:
+          type: string
+        meta_title:
+          type: string
+        meta_description:
+          type: string
+        og_image_url:
+          type: string
+
+    UpdateBioPageInput:
+      type: object
+      properties:
+        title:
+          type: string
+        slug:
+          type: string
+        bio:
+          type: string
+        avatar_url:
+          type: string
+        theme_id:
+          type: string
+        custom_css:
+          type: string
+        meta_title:
+          type: string
+        meta_description:
+          type: string
+        og_image_url:
+          type: string
+
+    CreateBioPageLinkInput:
+      type: object
+      required: [title, url]
+      properties:
+        title:
+          type: string
+        url:
+          type: string
+          format: uri
+        icon:
+          type: string
+        is_visible:
+          type: boolean
+        visible_from:
+          type: string
+          format: date-time
+        visible_until:
+          type: string
+          format: date-time
+
+    UpdateBioPageLinkInput:
+      type: object
+      properties:
+        title:
+          type: string
+        url:
+          type: string
+          format: uri
+        icon:
+          type: string
+        is_visible:
+          type: boolean
+        visible_from:
+          type: string
+          format: date-time
+        visible_until:
+          type: string
+          format: date-time
+
+    BioPageTheme:
+      type: object
+      properties:
+        id:
+          type: string
+        name:
+          type: string
+        description:
+          type: string
+        is_premium:
+          type: boolean
+        styles:
+          type: object
+          properties:
+            background_color:
+              type: string
+            text_color:
+              type: string
+            button_color:
+              type: string
+            button_text_color:
+              type: string
+            button_style:
+              type: string
+            font_family:
+              type: string
+            gradient:
+              type: object
+              nullable: true
+              properties:
+                from:
+                  type: string
+                to:
+                  type: string
+                direction:
+                  type: string
+
+    # ── API Key ──
+    APIKey:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        user_id:
+          type: string
+          format: uuid
+        workspace_id:
+          type: string
+          format: uuid
+        name:
+          type: string
+        key_prefix:
+          type: string
+        scopes:
+          type: array
+          items:
+            type: string
+        last_used_at:
+          type: string
+          format: date-time
+          nullable: true
+        request_count:
+          type: integer
+        rate_limit:
+          type: integer
+          nullable: true
+        expires_at:
+          type: string
+          format: date-time
+          nullable: true
+        created_at:
+          type: string
+          format: date-time
+
+    CreateAPIKeyInput:
+      type: object
+      required: [name, scopes]
+      properties:
+        name:
+          type: string
+          minLength: 1
+          maxLength: 100
+        scopes:
+          type: array
+          items:
+            type: string
+            enum: [links:read, links:write, analytics:read, domains:read, domains:write]
+          minItems: 1
+        expires_at:
+          type: string
+          format: date-time
+
+    CreateAPIKeyResponse:
+      type: object
+      properties:
+        api_key:
+          $ref: '#/components/schemas/APIKey'
+        key:
+          type: string
+          description: Full API key (shown only once)
+
+    # ── Webhook ──
+    Webhook:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        workspace_id:
+          type: string
+          format: uuid
+        url:
+          type: string
+          format: uri
+        events:
+          type: array
+          items:
+            type: string
+            enum: [link.created, link.updated, link.deleted, link.clicked, domain.verified, domain.removed]
+        is_active:
+          type: boolean
+        failure_count:
+          type: integer
+        last_triggered_at:
+          type: string
+          format: date-time
+          nullable: true
+        last_success_at:
+          type: string
+          format: date-time
+          nullable: true
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+
+    CreateWebhookInput:
+      type: object
+      required: [url, events]
+      properties:
+        url:
+          type: string
+          format: uri
+        events:
+          type: array
+          items:
+            type: string
+          minItems: 1
+
+    CreateWebhookResponse:
+      type: object
+      properties:
+        webhook:
+          $ref: '#/components/schemas/Webhook'
+        secret:
+          type: string
+          description: Webhook signing secret (shown only once)
+
+    WebhookDelivery:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        webhook_id:
+          type: string
+          format: uuid
+        event:
+          type: string
+        payload:
+          type: object
+        response_status:
+          type: integer
+          nullable: true
+        response_body:
+          type: string
+          nullable: true
+        attempts:
+          type: integer
+        max_attempts:
+          type: integer
+        last_attempt_at:
+          type: string
+          format: date-time
+          nullable: true
+        completed_at:
+          type: string
+          format: date-time
+          nullable: true
+        created_at:
+          type: string
+          format: date-time
+
+    # ── License ──
+    LicenseResponse:
+      type: object
+      properties:
+        is_active:
+          type: boolean
+        tier:
+          type: string
+          enum: [community, pro, enterprise]
+        features:
+          type: array
+          items:
+            type: string
+        expires_at:
+          type: string
+          format: date-time
+          nullable: true
+        licensed_to:
+          type: string
+        max_users:
+          type: integer
+
+    # ── Audit Log ──
+    AuditLog:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        workspace_id:
+          type: string
+          format: uuid
+        user_id:
+          type: string
+          format: uuid
+          nullable: true
+        action:
+          type: string
+        resource_type:
+          type: string
+        resource_id:
+          type: string
+          format: uuid
+          nullable: true
+        old_values:
+          type: object
+          nullable: true
+        new_values:
+          type: object
+          nullable: true
+        metadata:
+          type: object
+          nullable: true
+        ip_address:
+          type: string
+        user_agent:
+          type: string
+        created_at:
+          type: string
+          format: date-time
+
+    # ── Branding ──
+    WorkspaceBranding:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        workspace_id:
+          type: string
+          format: uuid
+        logo_url:
+          type: string
+        logo_dark_url:
+          type: string
+        favicon_url:
+          type: string
+        primary_color:
+          type: string
+        secondary_color:
+          type: string
+        accent_color:
+          type: string
+        custom_css:
+          type: string
+        hide_powered_by:
+          type: boolean
+        custom_footer_text:
+          type: string
+        custom_footer_url:
+          type: string
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+
+    UpdateBrandingInput:
+      type: object
+      properties:
+        logo_url:
+          type: string
+        logo_dark_url:
+          type: string
+        favicon_url:
+          type: string
+        primary_color:
+          type: string
+        secondary_color:
+          type: string
+        accent_color:
+          type: string
+        custom_css:
+          type: string
+        hide_powered_by:
+          type: boolean
+        custom_footer_text:
+          type: string
+        custom_footer_url:
+          type: string
+
+    # ── SSO ──
+    SSOConfig:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        workspace_id:
+          type: string
+          format: uuid
+        provider:
+          type: string
+        entity_id:
+          type: string
+        sso_url:
+          type: string
+          format: uri
+        slo_url:
+          type: string
+          format: uri
+        certificate:
+          type: string
+        idp_metadata_url:
+          type: string
+          format: uri
+        attribute_mapping:
+          type: object
+        is_enabled:
+          type: boolean
+        enforce_sso:
+          type: boolean
+        allowed_domains:
+          type: array
+          items:
+            type: string
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+
+    CreateSSOConfigInput:
+      type: object
+      required: [provider, entity_id, sso_url, certificate]
+      properties:
+        provider:
+          type: string
+          example: saml
+        entity_id:
+          type: string
+        sso_url:
+          type: string
+          format: uri
+        slo_url:
+          type: string
+          format: uri
+        certificate:
+          type: string
+        idp_metadata_url:
+          type: string
+          format: uri
+        idp_metadata_xml:
+          type: string
+        attribute_mapping:
+          type: object
+        is_enabled:
+          type: boolean
+        enforce_sso:
+          type: boolean
+        allowed_domains:
+          type: array
+          items:
+            type: string
+
+    UpdateSSOConfigInput:
+      type: object
+      properties:
+        provider:
+          type: string
+        entity_id:
+          type: string
+        sso_url:
+          type: string
+          format: uri
+        slo_url:
+          type: string
+          format: uri
+        certificate:
+          type: string
+        idp_metadata_url:
+          type: string
+          format: uri
+        idp_metadata_xml:
+          type: string
+        attribute_mapping:
+          type: object
+        is_enabled:
+          type: boolean
+        enforce_sso:
+          type: boolean
+        allowed_domains:
+          type: array
+          items:
+            type: string
+
+    SSOIdentity:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        user_id:
+          type: string
+          format: uuid
+        workspace_id:
+          type: string
+          format: uuid
+        provider:
+          type: string
+        external_id:
+          type: string
+        email:
+          type: string
+          format: email
+        name:
+          type: string
+        last_login_at:
+          type: string
+          format: date-time
+          nullable: true
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+
+    # ── SCIM ──
+    SCIMToken:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        workspace_id:
+          type: string
+          format: uuid
+        token_prefix:
+          type: string
+        name:
+          type: string
+        is_active:
+          type: boolean
+        last_used_at:
+          type: string
+          format: date-time
+          nullable: true
+        created_at:
+          type: string
+          format: date-time
+        expires_at:
+          type: string
+          format: date-time
+          nullable: true
+
+    CreateSCIMTokenInput:
+      type: object
+      required: [name]
+      properties:
+        name:
+          type: string
+          minLength: 1
+          maxLength: 255
+        expires_at:
+          type: string
+          format: date-time
+
+    CreateSCIMTokenResponse:
+      type: object
+      properties:
+        token:
+          type: string
+          description: Full SCIM token (shown only once)
+        scim_token:
+          $ref: '#/components/schemas/SCIMToken'
+
+    SCIMSyncLog:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        workspace_id:
+          type: string
+          format: uuid
+        operation:
+          type: string
+        resource_type:
+          type: string
+        external_id:
+          type: string
+        status:
+          type: string
+        details:
+          type: object
+        created_at:
+          type: string
+          format: date-time
