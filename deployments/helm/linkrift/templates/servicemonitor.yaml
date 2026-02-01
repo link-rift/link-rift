@@ -1,0 +1,28 @@
+{{- if .Values.metrics.serviceMonitor.enabled }}
+{{- range $name := list "api" "redirect" }}
+{{- $component := index $.Values $name }}
+{{- if $component.enabled }}
+---
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: {{ $.Release.Name }}-{{ $name }}
+  labels:
+    {{- include "linkrift.labels" $ | nindent 4 }}
+    app.kubernetes.io/name: {{ $name }}
+    {{- with $.Values.metrics.serviceMonitor.additionalLabels }}
+    {{- toYaml . | nindent 4 }}
+    {{- end }}
+spec:
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: {{ $name }}
+      app.kubernetes.io/instance: {{ $.Release.Name }}
+  endpoints:
+    - port: metrics
+      interval: {{ $.Values.metrics.serviceMonitor.interval }}
+      scrapeTimeout: {{ $.Values.metrics.serviceMonitor.scrapeTimeout }}
+      path: /metrics
+{{- end }}
+{{- end }}
+{{- end }}

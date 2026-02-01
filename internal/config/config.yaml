@@ -49,3 +49,7 @@ log:
 ratelimit:
   requests: 100
   window: 1m
+
+metrics:
+  enabled: true
+  port: 9090

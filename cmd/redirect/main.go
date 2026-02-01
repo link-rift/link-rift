@@ -13,11 +13,14 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/link-rift/link-rift/internal/config"
 	"github.com/link-rift/link-rift/internal/database"
+	"github.com/link-rift/link-rift/internal/metrics"
+	"github.com/link-rift/link-rift/internal/middleware"
 	"github.com/link-rift/link-rift/internal/models"
 	"github.com/link-rift/link-rift/internal/redirect"
 	"github.com/link-rift/link-rift/internal/repository"
 	"github.com/link-rift/link-rift/internal/repository/sqlc"
 	"github.com/link-rift/link-rift/pkg/crypto"
+	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"go.uber.org/zap"
 )
 
@@ -134,6 +137,7 @@ func main() {
 	gin.SetMode(gin.ReleaseMode)
 	router := gin.New()
 	router.Use(gin.Recovery())
+	router.Use(middleware.PrometheusMetrics("redirect"))
 
 	// 7. Health check
 	router.GET("/health", func(c *gin.Context) {
@@ -213,26 +217,34 @@ func main() {
 			return
 		}
 
+		resolveStart := time.Now()
 		result, err := resolver.Resolve(c.Request.Context(), shortCode)
+		resolveDuration := time.Since(resolveStart).Seconds()
+
 		if err != nil {
+			metrics.RedirectsTotal.WithLabelValues("not_found").Inc()
+			metrics.RedirectLatency.WithLabelValues("miss").Observe(resolveDuration)
 			renderError(c, http.StatusNotFound, "Link Not Found", "The link you're looking for doesn't exist or has been removed.")
 			return
 		}
 
 		// Check if active
 		if !result.IsActive {
+			metrics.RedirectsTotal.WithLabelValues("disabled").Inc()
 			renderError(c, http.StatusGone, "Link Disabled", "This link has been disabled by its owner.")
 			return
 		}
 
 		// Check if expired
 		if result.IsExpired {
+			metrics.RedirectsTotal.WithLabelValues("expired").Inc()
 			renderError(c, http.StatusGone, "Link Expired", "This link has expired and is no longer available.")
 			return
 		}
 
 		// Check click limit
 		if result.IsOverLimit {
+			metrics.RedirectsTotal.WithLabelValues("over_limit").Inc()
 			renderError(c, http.StatusGone, "Link Limit Reached", "This link has reached its maximum number of clicks.")
 			return
 		}
@@ -242,6 +254,7 @@ func main() {
 			// Check for auth cookie
 			cookie, err := c.Cookie("lr_auth_" + shortCode)
 			if err != nil || cookie != "1" {
+				metrics.RedirectsTotal.WithLabelValues("password_required").Inc()
 				c.Header("Content-Type", "text/html; charset=utf-8")
 				c.Status(http.StatusOK)
 				passwordPageTmpl.Execute(c.Writer, map[string]interface{}{
@@ -270,6 +283,9 @@ func main() {
 			})
 		}
 
+		metrics.RedirectsTotal.WithLabelValues("success").Inc()
+		metrics.RedirectLatency.WithLabelValues("hit").Observe(resolveDuration)
+
 		// Append UTM params if the destination doesn't already have them
 		c.Redirect(http.StatusFound, destinationURL)
 	})
@@ -292,6 +308,24 @@ func main() {
 			logger.Fatal("redirect server failed", zap.Error(err))
 		}
 	}()
+
+	// Start metrics server on a separate port
+	if cfg.Metrics.Enabled {
+		metricsMux := http.NewServeMux()
+		metricsMux.Handle("/metrics", promhttp.Handler())
+		metricsSrv := &http.Server{
+			Addr:    fmt.Sprintf(":%d", cfg.Metrics.Port+1),
+			Handler: metricsMux,
+		}
+		go func() {
+			logger.Info("starting redirect metrics server",
+				zap.Int("port", cfg.Metrics.Port+1),
+			)
+			if err := metricsSrv.ListenAndServe(); err != nil && err != http.ErrServerClosed {
+				logger.Error("redirect metrics server failed", zap.Error(err))
+			}
+		}()
+	}
 
 	quit := make(chan os.Signal, 1)
 	signal.Notify(quit, syscall.SIGINT, syscall.SIGTERM)

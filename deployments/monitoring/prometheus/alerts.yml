@@ -1,0 +1,178 @@
+groups:
+  - name: linkrift.api
+    rules:
+      # High error rate (>5% of requests returning 5xx)
+      - alert: HighAPIErrorRate
+        expr: |
+          (
+            sum(rate(linkrift_http_requests_total{service="api",status_code=~"5.."}[5m]))
+            /
+            sum(rate(linkrift_http_requests_total{service="api"}[5m]))
+          ) > 0.05
+        for: 5m
+        labels:
+          severity: critical
+          service: api
+        annotations:
+          summary: "High API error rate"
+          description: "API 5xx error rate is {{ $value | humanizePercentage }} (threshold: 5%)"
+
+      # High API latency (P99 > 2s)
+      - alert: HighAPILatency
+        expr: |
+          histogram_quantile(0.99,
+            sum(rate(linkrift_http_request_duration_seconds_bucket{service="api"}[5m])) by (le)
+          ) > 2
+        for: 5m
+        labels:
+          severity: warning
+          service: api
+        annotations:
+          summary: "High API P99 latency"
+          description: "API P99 latency is {{ $value }}s (threshold: 2s)"
+
+      # API service down
+      - alert: APIServiceDown
+        expr: up{job="linkrift-api"} == 0
+        for: 1m
+        labels:
+          severity: critical
+          service: api
+        annotations:
+          summary: "API service is down"
+          description: "Linkrift API service has been unreachable for 1 minute"
+
+  - name: linkrift.redirect
+    rules:
+      # Redirect service down
+      - alert: RedirectServiceDown
+        expr: up{job="linkrift-redirect"} == 0
+        for: 1m
+        labels:
+          severity: critical
+          service: redirect
+        annotations:
+          summary: "Redirect service is down"
+          description: "Linkrift redirect service has been unreachable for 1 minute"
+
+      # High redirect latency (P99 > 50ms)
+      - alert: HighRedirectLatency
+        expr: |
+          histogram_quantile(0.99,
+            sum(rate(linkrift_redirect_latency_seconds_bucket[5m])) by (le)
+          ) > 0.05
+        for: 5m
+        labels:
+          severity: warning
+          service: redirect
+        annotations:
+          summary: "High redirect P99 latency"
+          description: "Redirect P99 latency is {{ $value }}s (threshold: 50ms)"
+
+      # High redirect error rate
+      - alert: HighRedirectNotFoundRate
+        expr: |
+          (
+            sum(rate(linkrift_redirect_total{status="not_found"}[5m]))
+            /
+            sum(rate(linkrift_redirect_total[5m]))
+          ) > 0.3
+        for: 10m
+        labels:
+          severity: warning
+          service: redirect
+        annotations:
+          summary: "High redirect not-found rate"
+          description: "Redirect not-found rate is {{ $value | humanizePercentage }} (threshold: 30%)"
+
+      # High redirect error rate (5xx)
+      - alert: HighRedirectErrorRate
+        expr: |
+          (
+            sum(rate(linkrift_http_requests_total{service="redirect",status_code=~"5.."}[5m]))
+            /
+            sum(rate(linkrift_http_requests_total{service="redirect"}[5m]))
+          ) > 0.01
+        for: 5m
+        labels:
+          severity: critical
+          service: redirect
+        annotations:
+          summary: "High redirect 5xx error rate"
+          description: "Redirect 5xx error rate is {{ $value | humanizePercentage }} (threshold: 1%)"
+
+  - name: linkrift.database
+    rules:
+      # High DB connection usage
+      - alert: HighDBConnectionUsage
+        expr: linkrift_db_active_connections > 20
+        for: 5m
+        labels:
+          severity: warning
+          service: database
+        annotations:
+          summary: "High database connection usage"
+          description: "Active database connections: {{ $value }} (threshold: 20)"
+
+      # Slow DB queries (P99 > 1s)
+      - alert: SlowDBQueries
+        expr: |
+          histogram_quantile(0.99,
+            sum(rate(linkrift_db_query_duration_seconds_bucket[5m])) by (le, operation)
+          ) > 1
+        for: 5m
+        labels:
+          severity: warning
+          service: database
+        annotations:
+          summary: "Slow database queries"
+          description: "DB P99 query duration for {{ $labels.operation }} is {{ $value }}s"
+
+  - name: linkrift.infrastructure
+    rules:
+      # High memory usage (>80%)
+      - alert: HighMemoryUsage
+        expr: |
+          (
+            process_resident_memory_bytes
+            /
+            (1024 * 1024 * 1024)
+          ) > 1
+        for: 10m
+        labels:
+          severity: warning
+        annotations:
+          summary: "High memory usage"
+          description: "Process memory usage is {{ $value }}GB"
+
+      # Too many goroutines
+      - alert: TooManyGoroutines
+        expr: go_goroutines > 1000
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "High goroutine count"
+          description: "Goroutine count is {{ $value }} (threshold: 1000)"
+
+      # PostgreSQL down
+      - alert: PostgreSQLDown
+        expr: pg_up == 0
+        for: 1m
+        labels:
+          severity: critical
+          service: postgresql
+        annotations:
+          summary: "PostgreSQL is down"
+          description: "PostgreSQL exporter reports the database is unreachable"
+
+      # Redis down
+      - alert: RedisDown
+        expr: redis_up == 0
+        for: 1m
+        labels:
+          severity: critical
+          service: redis
+        annotations:
+          summary: "Redis is down"
+          description: "Redis exporter reports the instance is unreachable"

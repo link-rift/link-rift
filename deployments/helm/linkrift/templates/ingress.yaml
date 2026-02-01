@@ -1,0 +1,61 @@
+{{- if .Values.ingress.enabled }}
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: {{ .Release.Name }}-linkrift
+  labels:
+    {{- include "linkrift.labels" . | nindent 4 }}
+  {{- with .Values.ingress.annotations }}
+  annotations:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
+spec:
+  {{- if .Values.ingress.className }}
+  ingressClassName: {{ .Values.ingress.className }}
+  {{- end }}
+  {{- if .Values.ingress.tls }}
+  tls:
+    {{- range .Values.ingress.tls }}
+    - secretName: {{ .secretName }}
+      hosts:
+        {{- range .hosts }}
+        - {{ . | quote }}
+        {{- end }}
+    {{- end }}
+  {{- end }}
+  rules:
+    {{- if .Values.ingress.hosts.app }}
+    - host: {{ .Values.ingress.hosts.app.host | quote }}
+      http:
+        paths:
+          {{- range .Values.ingress.hosts.app.paths }}
+          - path: {{ .path }}
+            pathType: Prefix
+            backend:
+              service:
+                {{- if eq .service "api" }}
+                name: {{ $.Release.Name }}-api
+                port:
+                  number: {{ $.Values.api.port }}
+                {{- else if eq .service "web" }}
+                name: {{ $.Release.Name }}-web
+                port:
+                  number: {{ $.Values.web.port }}
+                {{- end }}
+          {{- end }}
+    {{- end }}
+    {{- if .Values.ingress.hosts.redirect }}
+    - host: {{ .Values.ingress.hosts.redirect.host | quote }}
+      http:
+        paths:
+          {{- range .Values.ingress.hosts.redirect.paths }}
+          - path: {{ .path }}
+            pathType: Prefix
+            backend:
+              service:
+                name: {{ $.Release.Name }}-redirect
+                port:
+                  number: {{ $.Values.redirect.port }}
+          {{- end }}
+    {{- end }}
+{{- end }}

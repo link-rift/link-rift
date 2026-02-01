@@ -22,6 +22,7 @@ type Config struct {
 	S3          S3Config
 	Log         LogConfig
 	RateLimit   RateLimitConfig
+	Metrics     MetricsConfig
 }
 
 type AppConfig struct {
@@ -109,6 +110,12 @@ type RateLimitConfig struct {
 	Window   time.Duration `mapstructure:"window"`
 }
 
+type MetricsConfig struct {
+	Enabled bool `mapstructure:"enabled"`
+	Port    int  `mapstructure:"port"`
+}
+
+
 // Load reads configuration from config.yaml and environment variables.
 func Load() (*Config, error) {
 	v := viper.New()
@@ -192,6 +199,8 @@ func bindEnvVars(v *viper.Viper) {
 	_ = v.BindEnv("log.format", "LOG_FORMAT")
 	_ = v.BindEnv("ratelimit.requests", "RATE_LIMIT_REQUESTS")
 	_ = v.BindEnv("ratelimit.window", "RATE_LIMIT_WINDOW")
+	_ = v.BindEnv("metrics.enabled", "METRICS_ENABLED")
+	_ = v.BindEnv("metrics.port", "METRICS_PORT")
 }
 
 func setDefaults(v *viper.Viper) {
@@ -223,4 +232,6 @@ func setDefaults(v *viper.Viper) {
 	v.SetDefault("log.format", "console")
 	v.SetDefault("ratelimit.requests", 100)
 	v.SetDefault("ratelimit.window", "1m")
+	v.SetDefault("metrics.enabled", true)
+	v.SetDefault("metrics.port", 9090)
 }

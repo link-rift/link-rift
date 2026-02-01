@@ -1,0 +1,31 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ .Release.Name }}-linkrift-config
+  labels:
+    {{- include "linkrift.labels" . | nindent 4 }}
+data:
+  APP_ENV: {{ .Values.config.appEnv | quote }}
+  APP_PORT: {{ .Values.config.appPort | quote }}
+  REDIRECT_PORT: {{ .Values.config.redirectPort | quote }}
+  LOG_LEVEL: {{ .Values.config.logLevel | quote }}
+  LOG_FORMAT: {{ .Values.config.logFormat | quote }}
+  DB_HOST: {{ .Values.postgresql.host | quote }}
+  DB_PORT: {{ .Values.postgresql.port | quote }}
+  DB_NAME: {{ .Values.postgresql.database | quote }}
+  DB_SSL_MODE: {{ .Values.postgresql.sslMode | quote }}
+  REDIS_HOST: {{ .Values.redis.host | quote }}
+  REDIS_PORT: {{ .Values.redis.port | quote }}
+  REDIS_DB: {{ .Values.redis.db | quote }}
+  CLICKHOUSE_HOST: {{ .Values.clickhouse.host | quote }}
+  CLICKHOUSE_PORT: {{ .Values.clickhouse.port | quote }}
+  CLICKHOUSE_DATABASE: {{ .Values.clickhouse.database | quote }}
+  MEILISEARCH_HOST: {{ .Values.meilisearch.host | quote }}
+  MEILISEARCH_PORT: {{ .Values.meilisearch.port | quote }}
+  S3_BUCKET: {{ .Values.s3.bucket | quote }}
+  S3_REGION: {{ .Values.s3.region | quote }}
+  {{- if .Values.s3.endpoint }}
+  S3_ENDPOINT: {{ .Values.s3.endpoint | quote }}
+  {{- end }}
+  METRICS_ENABLED: {{ .Values.metrics.enabled | quote }}
+  METRICS_PORT: {{ .Values.metrics.port | quote }}

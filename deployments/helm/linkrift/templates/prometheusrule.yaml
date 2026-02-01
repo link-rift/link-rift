@@ -1,0 +1,84 @@
+{{- if .Values.metrics.prometheusRule.enabled }}
+apiVersion: monitoring.coreos.com/v1
+kind: PrometheusRule
+metadata:
+  name: {{ .Release.Name }}-linkrift
+  labels:
+    {{- include "linkrift.labels" . | nindent 4 }}
+    {{- with .Values.metrics.prometheusRule.additionalLabels }}
+    {{- toYaml . | nindent 4 }}
+    {{- end }}
+spec:
+  groups:
+    - name: linkrift.api
+      rules:
+        - alert: HighAPIErrorRate
+          expr: |
+            (
+              sum(rate(linkrift_http_requests_total{service="api",status_code=~"5.."}[5m]))
+              /
+              sum(rate(linkrift_http_requests_total{service="api"}[5m]))
+            ) > 0.05
+          for: 5m
+          labels:
+            severity: critical
+            service: api
+          annotations:
+            summary: "High API error rate"
+            description: "API 5xx error rate is {{ "{{ $value | humanizePercentage }}" }} (threshold: 5%)"
+        - alert: HighAPILatency
+          expr: |
+            histogram_quantile(0.99,
+              sum(rate(linkrift_http_request_duration_seconds_bucket{service="api"}[5m])) by (le)
+            ) > 2
+          for: 5m
+          labels:
+            severity: warning
+            service: api
+          annotations:
+            summary: "High API P99 latency"
+            description: "API P99 latency is {{ "{{ $value }}" }}s"
+        - alert: APIServiceDown
+          expr: up{job="linkrift-api"} == 0
+          for: 1m
+          labels:
+            severity: critical
+            service: api
+          annotations:
+            summary: "API service is down"
+    - name: linkrift.redirect
+      rules:
+        - alert: RedirectServiceDown
+          expr: up{job="linkrift-redirect"} == 0
+          for: 1m
+          labels:
+            severity: critical
+            service: redirect
+          annotations:
+            summary: "Redirect service is down"
+        - alert: HighRedirectLatency
+          expr: |
+            histogram_quantile(0.99,
+              sum(rate(linkrift_redirect_latency_seconds_bucket[5m])) by (le)
+            ) > 0.05
+          for: 5m
+          labels:
+            severity: warning
+            service: redirect
+          annotations:
+            summary: "High redirect P99 latency"
+            description: "Redirect P99 latency is {{ "{{ $value }}" }}s"
+        - alert: HighRedirectErrorRate
+          expr: |
+            (
+              sum(rate(linkrift_http_requests_total{service="redirect",status_code=~"5.."}[5m]))
+              /
+              sum(rate(linkrift_http_requests_total{service="redirect"}[5m]))
+            ) > 0.01
+          for: 5m
+          labels:
+            severity: critical
+            service: redirect
+          annotations:
+            summary: "High redirect 5xx error rate"
+{{- end }}

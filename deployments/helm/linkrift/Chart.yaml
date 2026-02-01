@@ -1,0 +1,16 @@
+apiVersion: v2
+name: linkrift
+description: Enterprise-grade URL shortener with analytics, custom domains, and team collaboration
+type: application
+version: 0.1.0
+appVersion: "1.0.0"
+keywords:
+  - url-shortener
+  - analytics
+  - links
+home: https://linkrift.io
+sources:
+  - https://github.com/linkrift/linkrift
+maintainers:
+  - name: Linkrift
+    url: https://linkrift.io

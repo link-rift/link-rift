@@ -1,0 +1,252 @@
+# Default values for Linkrift Helm chart
+
+global:
+  imageRegistry: ghcr.io/linkrift
+  imagePullPolicy: IfNotPresent
+  imageTag: ""  # Defaults to Chart.appVersion
+
+# ──────────────────────────────────────────────
+# API Service
+# ──────────────────────────────────────────────
+api:
+  enabled: true
+  replicaCount: 2
+  image:
+    repository: linkrift-api
+    tag: ""
+  port: 8080
+  resources:
+    requests:
+      cpu: 250m
+      memory: 256Mi
+    limits:
+      cpu: "1"
+      memory: 512Mi
+  autoscaling:
+    enabled: true
+    minReplicas: 2
+    maxReplicas: 10
+    targetCPUUtilization: 70
+    targetMemoryUtilization: 80
+  livenessProbe:
+    httpGet:
+      path: /health
+      port: http
+    initialDelaySeconds: 10
+    periodSeconds: 15
+  readinessProbe:
+    httpGet:
+      path: /health
+      port: http
+    initialDelaySeconds: 5
+    periodSeconds: 10
+
+# ──────────────────────────────────────────────
+# Redirect Service
+# ──────────────────────────────────────────────
+redirect:
+  enabled: true
+  replicaCount: 3
+  image:
+    repository: linkrift-redirect
+    tag: ""
+  port: 8081
+  resources:
+    requests:
+      cpu: 500m
+      memory: 128Mi
+    limits:
+      cpu: "2"
+      memory: 512Mi
+  autoscaling:
+    enabled: true
+    minReplicas: 3
+    maxReplicas: 20
+    targetCPUUtilization: 60
+    targetMemoryUtilization: 70
+  livenessProbe:
+    httpGet:
+      path: /health
+      port: http
+    initialDelaySeconds: 5
+    periodSeconds: 10
+  readinessProbe:
+    httpGet:
+      path: /health
+      port: http
+    initialDelaySeconds: 3
+    periodSeconds: 5
+
+# ──────────────────────────────────────────────
+# Worker Service
+# ──────────────────────────────────────────────
+worker:
+  enabled: true
+  replicaCount: 2
+  image:
+    repository: linkrift-worker
+    tag: ""
+  resources:
+    requests:
+      cpu: 250m
+      memory: 256Mi
+    limits:
+      cpu: "1"
+      memory: 512Mi
+  autoscaling:
+    enabled: false
+
+# ──────────────────────────────────────────────
+# Web Frontend
+# ──────────────────────────────────────────────
+web:
+  enabled: true
+  replicaCount: 2
+  image:
+    repository: linkrift-web
+    tag: ""
+  port: 80
+  resources:
+    requests:
+      cpu: 100m
+      memory: 64Mi
+    limits:
+      cpu: 500m
+      memory: 128Mi
+  autoscaling:
+    enabled: true
+    minReplicas: 2
+    maxReplicas: 5
+    targetCPUUtilization: 70
+
+# ──────────────────────────────────────────────
+# Ingress
+# ──────────────────────────────────────────────
+ingress:
+  enabled: true
+  className: nginx
+  annotations:
+    cert-manager.io/cluster-issuer: letsencrypt-prod
+    nginx.ingress.kubernetes.io/ssl-redirect: "true"
+    nginx.ingress.kubernetes.io/proxy-body-size: 10m
+  hosts:
+    app:
+      host: app.linkrift.io
+      paths:
+        - path: /api
+          service: api
+        - path: /ws
+          service: api
+        - path: /b
+          service: api
+        - path: /
+          service: web
+    redirect:
+      host: lnkr.ft
+      paths:
+        - path: /
+          service: redirect
+  tls:
+    - secretName: linkrift-app-tls
+      hosts:
+        - app.linkrift.io
+    - secretName: linkrift-redirect-tls
+      hosts:
+        - lnkr.ft
+
+# ──────────────────────────────────────────────
+# External Services (connection config)
+# ──────────────────────────────────────────────
+postgresql:
+  host: ""
+  port: 5432
+  database: linkrift
+  sslMode: require
+  existingSecret: linkrift-db-credentials
+  secretKeys:
+    username: username
+    password: password
+
+redis:
+  host: ""
+  port: 6379
+  db: 0
+  existingSecret: linkrift-redis-credentials
+  secretKeys:
+    password: password
+
+clickhouse:
+  host: ""
+  port: 9000
+  database: linkrift
+  existingSecret: linkrift-clickhouse-credentials
+  secretKeys:
+    username: username
+    password: password
+
+meilisearch:
+  host: ""
+  port: 7700
+  existingSecret: linkrift-meilisearch-credentials
+  secretKeys:
+    apiKey: api-key
+
+s3:
+  bucket: linkrift-uploads
+  region: us-east-1
+  endpoint: ""
+  existingSecret: linkrift-s3-credentials
+  secretKeys:
+    accessKey: access-key
+    secretKey: secret-key
+
+# ──────────────────────────────────────────────
+# Application Config
+# ──────────────────────────────────────────────
+config:
+  appEnv: production
+  appPort: 8080
+  redirectPort: 8081
+  logLevel: info
+  logFormat: json
+  pasetoSymmetricKey: ""
+  existingSecret: linkrift-app-secrets
+  secretKeys:
+    pasetoKey: paseto-symmetric-key
+    licenseKey: license-key
+
+# ──────────────────────────────────────────────
+# Service Account
+# ──────────────────────────────────────────────
+serviceAccount:
+  create: true
+  name: ""
+  annotations: {}
+
+# ──────────────────────────────────────────────
+# Pod Disruption Budget
+# ──────────────────────────────────────────────
+podDisruptionBudget:
+  enabled: true
+  minAvailable: 1
+
+# ──────────────────────────────────────────────
+# Metrics & Monitoring
+# ──────────────────────────────────────────────
+metrics:
+  enabled: true
+  port: 9090
+  serviceMonitor:
+    enabled: false  # Enable when using kube-prometheus-stack
+    interval: 15s
+    scrapeTimeout: 10s
+    additionalLabels: {}
+  prometheusRule:
+    enabled: false  # Enable when using kube-prometheus-stack
+    additionalLabels: {}
+
+# ──────────────────────────────────────────────
+# Network Policy
+# ──────────────────────────────────────────────
+networkPolicy:
+  enabled: false
