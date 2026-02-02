@@ -1,4 +1,4 @@
-# Linkrift
+# <img src="web/public/vite.svg" width="32" height="32" alt="Linkrift icon" /> Linkrift
 
 [![License: AGPL v3](https://img.shields.io/badge/License-AGPL%20v3-blue.svg)](https://www.gnu.org/licenses/agpl-3.0)
 [![Go Version](https://img.shields.io/badge/Go-1.22+-00ADD8?logo=go)](https://go.dev/)
@@ -13,9 +13,7 @@
 
 Linkrift is an open-source, self-hostable URL shortener platform that combines powerful analytics, smart redirects, team collaboration, and marketing automation. Built with Go for sub-millisecond redirect latency and React for a modern user experience.
 
-<!-- TODO: Add dashboard screenshot once available
 ![Linkrift Dashboard](docs/assets/dashboard-preview.png)
--->
 
 ## Key Features
 
@@ -37,6 +35,16 @@ Linkrift is an open-source, self-hostable URL shortener platform that combines p
 | **Frontend** | React 18, TypeScript, Vite 5, Tailwind CSS, Shadcn UI |
 | **Database** | PostgreSQL 16, Redis 7, ClickHouse |
 | **Infrastructure** | Docker, Kubernetes, NGINX, Cloudflare |
+
+## Theme
+
+Linkrift ships with a warm coral brand and supports **light and dark modes** out of the box. Toggle via the sun/moon icon in the header.
+
+| | Light | Dark |
+|---|---|---|
+| **Background** | Warm off-white | Warm charcoal |
+| **Primary** | Coral | Bright coral |
+| **Cards** | Pure white | Elevated dark |
 
 ## Quick Start
 
