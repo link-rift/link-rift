@@ -1,4 +1,4 @@
-import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom"
+import { BrowserRouter, Routes, Route } from "react-router-dom"
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query"
 import AuthLayout from "@/components/layouts/AuthLayout"
 import AppLayout from "@/components/layouts/AppLayout"
@@ -23,6 +23,7 @@ import SSOSettingsPage from "@/pages/dashboard/SSOSettingsPage"
 import SCIMSettingsPage from "@/pages/dashboard/SCIMSettingsPage"
 import SSOLoginPage from "@/pages/auth/SSOLoginPage"
 import PublicBioPage from "@/pages/public/PublicBioPage"
+import NotFoundPage from "@/pages/NotFoundPage"
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -66,7 +67,7 @@ export default function App() {
             </Route>
           </Route>
           <Route path="/b/:slug" element={<PublicBioPage />} />
-          <Route path="*" element={<Navigate to="/" replace />} />
+          <Route path="*" element={<NotFoundPage />} />
         </Routes>
       </BrowserRouter>
     </QueryClientProvider>

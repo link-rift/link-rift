@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from "react"
+import { useState, useEffect, useCallback, useRef } from "react"
 import {
   Dialog,
   DialogContent,
@@ -24,6 +24,7 @@ import {
   useDownloadQRCode,
   useStyleTemplates,
 } from "@/hooks/useQRCodes"
+import { downloadQRCode } from "@/services/qrcodes"
 import type { Link } from "@/types/link"
 import type { CreateQRCodeRequest } from "@/types/qrcode"
 
@@ -47,11 +48,32 @@ const DEFAULT_OPTIONS: CreateQRCodeRequest = {
 export default function QRCodeModal({ link, open, onClose }: QRCodeModalProps) {
   const [options, setOptions] = useState<CreateQRCodeRequest>(DEFAULT_OPTIONS)
   const [previewUrl, setPreviewUrl] = useState<string | null>(null)
+  const previewBlobUrl = useRef<string | null>(null)
 
   const { data: existingQR } = useQRCodeForLink(link.id)
   const { data: templates } = useStyleTemplates()
   const createQR = useCreateQRCode()
   const downloadQR = useDownloadQRCode()
+
+  // Fetch QR preview via the download endpoint to get a working image URL
+  const fetchPreview = useCallback(async (linkId: string) => {
+    try {
+      const blob = await downloadQRCode(linkId, "png")
+      if (previewBlobUrl.current) URL.revokeObjectURL(previewBlobUrl.current)
+      const url = URL.createObjectURL(blob)
+      previewBlobUrl.current = url
+      setPreviewUrl(url)
+    } catch {
+      // Download endpoint failed — keep existing preview
+    }
+  }, [])
+
+  // Cleanup blob URL on unmount
+  useEffect(() => {
+    return () => {
+      if (previewBlobUrl.current) URL.revokeObjectURL(previewBlobUrl.current)
+    }
+  }, [])
 
   // Load existing QR settings if available
   useEffect(() => {
@@ -67,10 +89,10 @@ export default function QRCodeModal({ link, open, onClose }: QRCodeModalProps) {
         margin: existingQR.margin,
       })
       if (existingQR.png_url) {
-        setPreviewUrl(existingQR.png_url)
+        fetchPreview(link.id)
       }
     }
-  }, [existingQR])
+  }, [existingQR, link.id, fetchPreview])
 
   // Generate a simple preview using canvas
   const generatePreview = useCallback(() => {
@@ -181,10 +203,8 @@ export default function QRCodeModal({ link, open, onClose }: QRCodeModalProps) {
     createQR.mutate(
       { linkId: link.id, data: options },
       {
-        onSuccess: (qr) => {
-          if (qr.png_url) {
-            setPreviewUrl(qr.png_url)
-          }
+        onSuccess: () => {
+          fetchPreview(link.id)
         },
       }
     )

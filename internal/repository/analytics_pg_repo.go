@@ -295,6 +295,191 @@ func (r *pgAnalyticsRepo) GetBrowserBreakdown(ctx context.Context, linkID uuid.U
 	return stats, nil
 }
 
+func (r *pgAnalyticsRepo) GetWorkspaceTimeSeries(ctx context.Context, workspaceID uuid.UUID, interval models.TimeSeriesInterval, dr models.DateRange) ([]models.TimeSeriesPoint, error) {
+	trunc := pgTruncInterval(interval)
+
+	rows, err := r.pool.Query(ctx, fmt.Sprintf(`
+		SELECT
+			date_trunc('%s', c.clicked_at) AS ts,
+			COUNT(*) AS clicks,
+			COUNT(DISTINCT c.ip_address) AS uniq
+		FROM clicks c
+		JOIN links l ON l.id = c.link_id
+		WHERE l.workspace_id = $1 AND c.clicked_at >= $2 AND c.clicked_at <= $3
+			AND c.is_bot = false AND l.deleted_at IS NULL
+		GROUP BY ts
+		ORDER BY ts ASC
+	`, trunc), workspaceID, dr.Start, dr.End)
+	if err != nil {
+		return nil, fmt.Errorf("pg get workspace time series: %w", err)
+	}
+	defer rows.Close()
+
+	var points []models.TimeSeriesPoint
+	for rows.Next() {
+		var p models.TimeSeriesPoint
+		if err := rows.Scan(&p.Timestamp, &p.Clicks, &p.Unique); err != nil {
+			return nil, fmt.Errorf("pg scan workspace time series: %w", err)
+		}
+		points = append(points, p)
+	}
+
+	return points, nil
+}
+
+func (r *pgAnalyticsRepo) GetWorkspaceTopReferrers(ctx context.Context, workspaceID uuid.UUID, dr models.DateRange, limit int) ([]models.ReferrerStats, error) {
+	rows, err := r.pool.Query(ctx, `
+		SELECT
+			COALESCE(NULLIF(c.referer, ''), 'Direct') AS ref,
+			COUNT(*) AS clicks
+		FROM clicks c
+		JOIN links l ON l.id = c.link_id
+		WHERE l.workspace_id = $1 AND c.clicked_at >= $2 AND c.clicked_at <= $3
+			AND c.is_bot = false AND l.deleted_at IS NULL
+		GROUP BY ref
+		ORDER BY clicks DESC
+		LIMIT $4
+	`, workspaceID, dr.Start, dr.End, limit)
+	if err != nil {
+		return nil, fmt.Errorf("pg get workspace referrers: %w", err)
+	}
+	defer rows.Close()
+
+	var total int64
+	var stats []models.ReferrerStats
+	for rows.Next() {
+		var s models.ReferrerStats
+		if err := rows.Scan(&s.Referrer, &s.Clicks); err != nil {
+			return nil, fmt.Errorf("pg scan workspace referrer: %w", err)
+		}
+		total += s.Clicks
+		stats = append(stats, s)
+	}
+
+	for i := range stats {
+		if total > 0 {
+			stats[i].Percent = float64(stats[i].Clicks) / float64(total) * 100
+		}
+	}
+
+	return stats, nil
+}
+
+func (r *pgAnalyticsRepo) GetWorkspaceTopCountries(ctx context.Context, workspaceID uuid.UUID, dr models.DateRange, limit int) ([]models.CountryStats, error) {
+	rows, err := r.pool.Query(ctx, `
+		SELECT
+			COALESCE(NULLIF(c.country_code, ''), 'Unknown') AS cc,
+			COUNT(*) AS clicks
+		FROM clicks c
+		JOIN links l ON l.id = c.link_id
+		WHERE l.workspace_id = $1 AND c.clicked_at >= $2 AND c.clicked_at <= $3
+			AND c.is_bot = false AND l.deleted_at IS NULL
+		GROUP BY cc
+		ORDER BY clicks DESC
+		LIMIT $4
+	`, workspaceID, dr.Start, dr.End, limit)
+	if err != nil {
+		return nil, fmt.Errorf("pg get workspace countries: %w", err)
+	}
+	defer rows.Close()
+
+	var total int64
+	var stats []models.CountryStats
+	for rows.Next() {
+		var s models.CountryStats
+		if err := rows.Scan(&s.CountryCode, &s.Clicks); err != nil {
+			return nil, fmt.Errorf("pg scan workspace country: %w", err)
+		}
+		s.Country = s.CountryCode
+		total += s.Clicks
+		stats = append(stats, s)
+	}
+
+	for i := range stats {
+		if total > 0 {
+			stats[i].Percent = float64(stats[i].Clicks) / float64(total) * 100
+		}
+	}
+
+	return stats, nil
+}
+
+func (r *pgAnalyticsRepo) GetWorkspaceDeviceBreakdown(ctx context.Context, workspaceID uuid.UUID, dr models.DateRange) (*models.DeviceBreakdown, error) {
+	rows, err := r.pool.Query(ctx, `
+		SELECT
+			COALESCE(NULLIF(c.device_type, ''), 'desktop') AS dt,
+			COUNT(*) AS clicks
+		FROM clicks c
+		JOIN links l ON l.id = c.link_id
+		WHERE l.workspace_id = $1 AND c.clicked_at >= $2 AND c.clicked_at <= $3
+			AND c.is_bot = false AND l.deleted_at IS NULL
+		GROUP BY dt
+	`, workspaceID, dr.Start, dr.End)
+	if err != nil {
+		return nil, fmt.Errorf("pg get workspace devices: %w", err)
+	}
+	defer rows.Close()
+
+	breakdown := &models.DeviceBreakdown{}
+	for rows.Next() {
+		var dt string
+		var clicks int64
+		if err := rows.Scan(&dt, &clicks); err != nil {
+			return nil, fmt.Errorf("pg scan workspace device: %w", err)
+		}
+		switch dt {
+		case "desktop":
+			breakdown.Desktop = clicks
+		case "mobile":
+			breakdown.Mobile = clicks
+		case "tablet":
+			breakdown.Tablet = clicks
+		default:
+			breakdown.Other += clicks
+		}
+	}
+
+	return breakdown, nil
+}
+
+func (r *pgAnalyticsRepo) GetWorkspaceBrowserBreakdown(ctx context.Context, workspaceID uuid.UUID, dr models.DateRange, limit int) ([]models.BrowserStats, error) {
+	rows, err := r.pool.Query(ctx, `
+		SELECT
+			COALESCE(NULLIF(c.browser, ''), 'Unknown') AS b,
+			COUNT(*) AS clicks
+		FROM clicks c
+		JOIN links l ON l.id = c.link_id
+		WHERE l.workspace_id = $1 AND c.clicked_at >= $2 AND c.clicked_at <= $3
+			AND c.is_bot = false AND l.deleted_at IS NULL
+		GROUP BY b
+		ORDER BY clicks DESC
+		LIMIT $4
+	`, workspaceID, dr.Start, dr.End, limit)
+	if err != nil {
+		return nil, fmt.Errorf("pg get workspace browsers: %w", err)
+	}
+	defer rows.Close()
+
+	var total int64
+	var stats []models.BrowserStats
+	for rows.Next() {
+		var s models.BrowserStats
+		if err := rows.Scan(&s.Browser, &s.Clicks); err != nil {
+			return nil, fmt.Errorf("pg scan workspace browser: %w", err)
+		}
+		total += s.Clicks
+		stats = append(stats, s)
+	}
+
+	for i := range stats {
+		if total > 0 {
+			stats[i].Percent = float64(stats[i].Clicks) / float64(total) * 100
+		}
+	}
+
+	return stats, nil
+}
+
 func pgTruncInterval(interval models.TimeSeriesInterval) string {
 	switch interval {
 	case models.IntervalHour:

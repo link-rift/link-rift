@@ -100,6 +100,82 @@ export function useBrowsers(
   })
 }
 
+export function useWorkspaceTimeSeries(
+  interval: TimeSeriesInterval = "day",
+  range_?: DateRangePreset,
+  dateRange?: DateRange
+) {
+  const { currentWorkspace } = useWorkspaceStore()
+  const wsId = currentWorkspace?.id
+
+  return useQuery({
+    queryKey: ["analytics", "workspace-timeseries", wsId, interval, range_, dateRange],
+    queryFn: () => analyticsService.getWorkspaceTimeSeries(interval, range_, dateRange),
+    enabled: !!wsId,
+    staleTime: 30 * 1000,
+  })
+}
+
+export function useWorkspaceReferrers(
+  range_?: DateRangePreset,
+  dateRange?: DateRange
+) {
+  const { currentWorkspace } = useWorkspaceStore()
+  const wsId = currentWorkspace?.id
+
+  return useQuery({
+    queryKey: ["analytics", "workspace-referrers", wsId, range_, dateRange],
+    queryFn: () => analyticsService.getWorkspaceReferrers(range_, dateRange),
+    enabled: !!wsId,
+    staleTime: 60 * 1000,
+  })
+}
+
+export function useWorkspaceCountries(
+  range_?: DateRangePreset,
+  dateRange?: DateRange
+) {
+  const { currentWorkspace } = useWorkspaceStore()
+  const wsId = currentWorkspace?.id
+
+  return useQuery({
+    queryKey: ["analytics", "workspace-countries", wsId, range_, dateRange],
+    queryFn: () => analyticsService.getWorkspaceCountries(range_, dateRange),
+    enabled: !!wsId,
+    staleTime: 60 * 1000,
+  })
+}
+
+export function useWorkspaceDevices(
+  range_?: DateRangePreset,
+  dateRange?: DateRange
+) {
+  const { currentWorkspace } = useWorkspaceStore()
+  const wsId = currentWorkspace?.id
+
+  return useQuery({
+    queryKey: ["analytics", "workspace-devices", wsId, range_, dateRange],
+    queryFn: () => analyticsService.getWorkspaceDevices(range_, dateRange),
+    enabled: !!wsId,
+    staleTime: 60 * 1000,
+  })
+}
+
+export function useWorkspaceBrowsers(
+  range_?: DateRangePreset,
+  dateRange?: DateRange
+) {
+  const { currentWorkspace } = useWorkspaceStore()
+  const wsId = currentWorkspace?.id
+
+  return useQuery({
+    queryKey: ["analytics", "workspace-browsers", wsId, range_, dateRange],
+    queryFn: () => analyticsService.getWorkspaceBrowsers(range_, dateRange),
+    enabled: !!wsId,
+    staleTime: 60 * 1000,
+  })
+}
+
 export function useWorkspaceAnalytics(
   range_?: DateRangePreset,
   dateRange?: DateRange

@@ -45,6 +45,21 @@ func (m *mockAnalyticsRepo) GetDeviceBreakdown(_ context.Context, _ uuid.UUID, _
 func (m *mockAnalyticsRepo) GetBrowserBreakdown(_ context.Context, _ uuid.UUID, _ models.DateRange, _ int) ([]models.BrowserStats, error) {
 	return m.browsers, m.err
 }
+func (m *mockAnalyticsRepo) GetWorkspaceTimeSeries(_ context.Context, _ uuid.UUID, _ models.TimeSeriesInterval, _ models.DateRange) ([]models.TimeSeriesPoint, error) {
+	return m.timeSeries, m.err
+}
+func (m *mockAnalyticsRepo) GetWorkspaceTopReferrers(_ context.Context, _ uuid.UUID, _ models.DateRange, _ int) ([]models.ReferrerStats, error) {
+	return m.referrers, m.err
+}
+func (m *mockAnalyticsRepo) GetWorkspaceTopCountries(_ context.Context, _ uuid.UUID, _ models.DateRange, _ int) ([]models.CountryStats, error) {
+	return m.countries, m.err
+}
+func (m *mockAnalyticsRepo) GetWorkspaceDeviceBreakdown(_ context.Context, _ uuid.UUID, _ models.DateRange) (*models.DeviceBreakdown, error) {
+	return m.deviceBreakdown, m.err
+}
+func (m *mockAnalyticsRepo) GetWorkspaceBrowserBreakdown(_ context.Context, _ uuid.UUID, _ models.DateRange, _ int) ([]models.BrowserStats, error) {
+	return m.browsers, m.err
+}
 
 func newTestLicenseManager(tier license.Tier) *license.Manager {
 	v, _ := license.NewVerifier()

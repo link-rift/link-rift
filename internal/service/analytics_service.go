@@ -25,6 +25,13 @@ type AnalyticsService interface {
 	GetDeviceBreakdown(ctx context.Context, linkID uuid.UUID, dr models.DateRange) (*models.DeviceBreakdown, error)
 	GetBrowserBreakdown(ctx context.Context, linkID uuid.UUID, dr models.DateRange, limit int) ([]models.BrowserStats, error)
 	ExportLinkData(ctx context.Context, linkID uuid.UUID, dr models.DateRange, format models.AnalyticsExportFormat) ([]byte, string, error)
+
+	// Workspace-level breakdowns.
+	GetWorkspaceTimeSeries(ctx context.Context, workspaceID uuid.UUID, interval models.TimeSeriesInterval, dr models.DateRange) ([]models.TimeSeriesPoint, error)
+	GetWorkspaceTopReferrers(ctx context.Context, workspaceID uuid.UUID, dr models.DateRange, limit int) ([]models.ReferrerStats, error)
+	GetWorkspaceTopCountries(ctx context.Context, workspaceID uuid.UUID, dr models.DateRange, limit int) ([]models.CountryStats, error)
+	GetWorkspaceDeviceBreakdown(ctx context.Context, workspaceID uuid.UUID, dr models.DateRange) (*models.DeviceBreakdown, error)
+	GetWorkspaceBrowserBreakdown(ctx context.Context, workspaceID uuid.UUID, dr models.DateRange, limit int) ([]models.BrowserStats, error)
 }
 
 type analyticsService struct {
@@ -149,4 +156,41 @@ func (s *analyticsService) ExportLinkData(ctx context.Context, linkID uuid.UUID,
 	default:
 		return nil, "", httputil.Validation("format", "unsupported export format, use csv or json")
 	}
+}
+
+func (s *analyticsService) GetWorkspaceTimeSeries(ctx context.Context, workspaceID uuid.UUID, interval models.TimeSeriesInterval, dr models.DateRange) ([]models.TimeSeriesPoint, error) {
+	dr = s.clampDateRange(dr)
+	return s.repo.GetWorkspaceTimeSeries(ctx, workspaceID, interval, dr)
+}
+
+func (s *analyticsService) GetWorkspaceTopReferrers(ctx context.Context, workspaceID uuid.UUID, dr models.DateRange, limit int) ([]models.ReferrerStats, error) {
+	if !s.licManager.HasFeature(license.FeatureAdvancedAnalytics) {
+		return nil, httputil.PaymentRequiredWithDetails(string(license.FeatureAdvancedAnalytics), "pro")
+	}
+	dr = s.clampDateRange(dr)
+	return s.repo.GetWorkspaceTopReferrers(ctx, workspaceID, dr, limit)
+}
+
+func (s *analyticsService) GetWorkspaceTopCountries(ctx context.Context, workspaceID uuid.UUID, dr models.DateRange, limit int) ([]models.CountryStats, error) {
+	if !s.licManager.HasFeature(license.FeatureAdvancedAnalytics) {
+		return nil, httputil.PaymentRequiredWithDetails(string(license.FeatureAdvancedAnalytics), "pro")
+	}
+	dr = s.clampDateRange(dr)
+	return s.repo.GetWorkspaceTopCountries(ctx, workspaceID, dr, limit)
+}
+
+func (s *analyticsService) GetWorkspaceDeviceBreakdown(ctx context.Context, workspaceID uuid.UUID, dr models.DateRange) (*models.DeviceBreakdown, error) {
+	if !s.licManager.HasFeature(license.FeatureAdvancedAnalytics) {
+		return nil, httputil.PaymentRequiredWithDetails(string(license.FeatureAdvancedAnalytics), "pro")
+	}
+	dr = s.clampDateRange(dr)
+	return s.repo.GetWorkspaceDeviceBreakdown(ctx, workspaceID, dr)
+}
+
+func (s *analyticsService) GetWorkspaceBrowserBreakdown(ctx context.Context, workspaceID uuid.UUID, dr models.DateRange, limit int) ([]models.BrowserStats, error) {
+	if !s.licManager.HasFeature(license.FeatureAdvancedAnalytics) {
+		return nil, httputil.PaymentRequiredWithDetails(string(license.FeatureAdvancedAnalytics), "pro")
+	}
+	dr = s.clampDateRange(dr)
+	return s.repo.GetWorkspaceBrowserBreakdown(ctx, workspaceID, dr, limit)
 }

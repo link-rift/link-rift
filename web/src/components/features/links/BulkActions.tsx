@@ -1,5 +1,16 @@
+import { useState } from "react"
 import { useDeleteLink } from "@/hooks/useLinks"
 import { Button } from "@/components/ui/button"
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog"
 
 interface BulkActionsProps {
   selectedCount: number
@@ -9,17 +20,15 @@ interface BulkActionsProps {
 
 export default function BulkActions({ selectedCount, selectedIds, onClear }: BulkActionsProps) {
   const deleteLink = useDeleteLink()
+  const [showDeleteDialog, setShowDeleteDialog] = useState(false)
 
   if (selectedCount === 0) return null
 
   function handleBulkDelete() {
-    if (!window.confirm(`Are you sure you want to delete ${selectedCount} link(s)?`)) {
-      return
-    }
-
     const ids = Array.from(selectedIds)
     ids.forEach((id) => deleteLink.mutate(id))
     onClear()
+    setShowDeleteDialog(false)
   }
 
   return (
@@ -31,7 +40,7 @@ export default function BulkActions({ selectedCount, selectedIds, onClear }: Bul
         <Button
           variant="destructive"
           size="sm"
-          onClick={handleBulkDelete}
+          onClick={() => setShowDeleteDialog(true)}
           disabled={deleteLink.isPending}
         >
           Delete Selected
@@ -40,6 +49,26 @@ export default function BulkActions({ selectedCount, selectedIds, onClear }: Bul
           Clear Selection
         </Button>
       </div>
+
+      <AlertDialog open={showDeleteDialog} onOpenChange={setShowDeleteDialog}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete {selectedCount} link{selectedCount > 1 ? "s" : ""}</AlertDialogTitle>
+            <AlertDialogDescription>
+              Are you sure you want to delete {selectedCount} link{selectedCount > 1 ? "s" : ""}? This action cannot be undone and all associated analytics data will be lost.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={handleBulkDelete}
+              className="bg-destructive text-white hover:bg-destructive/90"
+            >
+              Delete
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   )
 }

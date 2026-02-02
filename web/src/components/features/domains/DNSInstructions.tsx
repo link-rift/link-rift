@@ -4,6 +4,7 @@ import { Button } from "@/components/ui/button"
 import {
   Dialog,
   DialogContent,
+  DialogDescription,
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog"
@@ -31,6 +32,7 @@ export default function DNSInstructions({
       <DialogContent className="sm:max-w-lg">
         <DialogHeader>
           <DialogTitle>DNS Configuration for {domainName}</DialogTitle>
+          <DialogDescription>Configure DNS records to verify domain ownership and route traffic.</DialogDescription>
         </DialogHeader>
         <div className="space-y-4">
           <p className="text-sm text-muted-foreground">

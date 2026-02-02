@@ -134,12 +134,12 @@ func main() {
 		s3Store, err := storage.NewS3Storage(cfg.S3)
 		if err != nil {
 			logger.Warn("S3 storage unavailable, falling back to local storage", zap.Error(err))
-			objectStore = storage.NewLocalStorage("./data/uploads/", cfg.App.BaseURL+"/uploads/")
+			objectStore = storage.NewLocalStorage(localUploadPath(), cfg.App.BaseURL+"/uploads/")
 		} else {
 			objectStore = s3Store
 		}
 	} else {
-		objectStore = storage.NewLocalStorage("./data/uploads/", cfg.App.BaseURL+"/uploads/")
+		objectStore = storage.NewLocalStorage(localUploadPath(), cfg.App.BaseURL+"/uploads/")
 	}
 
 	// 9c. Create QR code generator
@@ -338,4 +338,22 @@ func main() {
 	}
 
 	logger.Info("server stopped")
+}
+
+// localUploadPath returns a writable local upload directory.
+// It tries ./data/uploads/ first (project root or Docker /app mount),
+// falling back to /tmp/linkrift/uploads/ if the preferred path cannot
+// be created (e.g. running as a non-root user in a container).
+func localUploadPath() string {
+	candidates := []string{
+		"/app/data/uploads/",
+		"./data/uploads/",
+		"/tmp/linkrift/uploads/",
+	}
+	for _, p := range candidates {
+		if err := os.MkdirAll(p, 0o755); err == nil {
+			return p
+		}
+	}
+	return "/tmp/linkrift/uploads/"
 }

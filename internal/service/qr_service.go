@@ -125,8 +125,7 @@ func (s *qrCodeService) CreateQRCode(ctx context.Context, linkID, workspaceID uu
 		Margin:          int(margin),
 	}
 
-	qrID := uuid.New()
-	storageKey := fmt.Sprintf("qr/%s/%s.png", linkID.String(), qrID.String())
+	storageKey := fmt.Sprintf("qr/%s/qrcode.png", linkID.String())
 
 	pngURL, err := s.generator.GenerateAndUpload(ctx, targetURL, storageKey, opts)
 	if err != nil {
@@ -217,7 +216,7 @@ func (s *qrCodeService) DeleteQRCode(ctx context.Context, id uuid.UUID) error {
 
 	// Delete from storage if we have a PNG URL
 	if qr.PngURL != nil {
-		storageKey := fmt.Sprintf("qr/%s/%s.png", qr.LinkID.String(), qr.ID.String())
+		storageKey := fmt.Sprintf("qr/%s/qrcode.png", qr.LinkID.String())
 		if delErr := s.store.Delete(ctx, storageKey); delErr != nil {
 			s.logger.Warn("failed to delete QR code from storage", zap.Error(delErr))
 		}

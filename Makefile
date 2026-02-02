@@ -1,3 +1,6 @@
+-include .env
+export
+
 .PHONY: help dev dev-api dev-redirect dev-worker dev-web \
 	build build-api build-redirect build-worker build-cli build-web \
 	test test-cover test-race bench \

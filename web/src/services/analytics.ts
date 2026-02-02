@@ -146,6 +146,80 @@ export async function getWorkspaceStats(
   return res.data
 }
 
+export async function getWorkspaceTimeSeries(
+  interval: TimeSeriesInterval = "day",
+  range_?: DateRangePreset,
+  dateRange?: DateRange
+): Promise<TimeSeriesPoint[]> {
+  const params = buildDateParams(range_, dateRange)
+  params.set("interval", interval)
+  const url = `${analyticsBase()}/workspace/timeseries?${params}`
+  const res = await apiRequest<TimeSeriesPoint[]>(url)
+  if (!res.success || !res.data) {
+    throw new Error(res.error?.message || "Failed to fetch workspace time series")
+  }
+  return res.data
+}
+
+export async function getWorkspaceReferrers(
+  range_?: DateRangePreset,
+  dateRange?: DateRange,
+  limit = 10
+): Promise<ReferrerStats[]> {
+  const params = buildDateParams(range_, dateRange)
+  params.set("limit", String(limit))
+  const url = `${analyticsBase()}/workspace/referrers?${params}`
+  const res = await apiRequest<ReferrerStats[]>(url)
+  if (!res.success || !res.data) {
+    throw new Error(res.error?.message || "Failed to fetch workspace referrers")
+  }
+  return res.data
+}
+
+export async function getWorkspaceCountries(
+  range_?: DateRangePreset,
+  dateRange?: DateRange,
+  limit = 10
+): Promise<CountryStats[]> {
+  const params = buildDateParams(range_, dateRange)
+  params.set("limit", String(limit))
+  const url = `${analyticsBase()}/workspace/countries?${params}`
+  const res = await apiRequest<CountryStats[]>(url)
+  if (!res.success || !res.data) {
+    throw new Error(res.error?.message || "Failed to fetch workspace countries")
+  }
+  return res.data
+}
+
+export async function getWorkspaceDevices(
+  range_?: DateRangePreset,
+  dateRange?: DateRange
+): Promise<DeviceBreakdown> {
+  const params = buildDateParams(range_, dateRange)
+  const qs = params.toString()
+  const url = `${analyticsBase()}/workspace/devices${qs ? `?${qs}` : ""}`
+  const res = await apiRequest<DeviceBreakdown>(url)
+  if (!res.success || !res.data) {
+    throw new Error(res.error?.message || "Failed to fetch workspace devices")
+  }
+  return res.data
+}
+
+export async function getWorkspaceBrowsers(
+  range_?: DateRangePreset,
+  dateRange?: DateRange,
+  limit = 10
+): Promise<BrowserStats[]> {
+  const params = buildDateParams(range_, dateRange)
+  params.set("limit", String(limit))
+  const url = `${analyticsBase()}/workspace/browsers?${params}`
+  const res = await apiRequest<BrowserStats[]>(url)
+  if (!res.success || !res.data) {
+    throw new Error(res.error?.message || "Failed to fetch workspace browsers")
+  }
+  return res.data
+}
+
 export async function exportData(
   linkId: string,
   format: ExportFormat = "csv",

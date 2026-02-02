@@ -9,6 +9,11 @@ import {
   useDevices,
   useBrowsers,
   useWorkspaceAnalytics,
+  useWorkspaceTimeSeries,
+  useWorkspaceReferrers,
+  useWorkspaceCountries,
+  useWorkspaceDevices,
+  useWorkspaceBrowsers,
 } from "@/hooks/useAnalytics"
 import { useRealtimeAnalytics } from "@/hooks/useRealtimeAnalytics"
 import DateRangePicker from "@/components/features/analytics/DateRangePicker"
@@ -35,6 +40,11 @@ export default function AnalyticsPage() {
 
   // Workspace-level analytics
   const workspaceAnalytics = useWorkspaceAnalytics(activeRange, activeDateRange)
+  const wsTimeSeries = useWorkspaceTimeSeries(interval, activeRange, activeDateRange)
+  const wsReferrers = useWorkspaceReferrers(activeRange, activeDateRange)
+  const wsCountries = useWorkspaceCountries(activeRange, activeDateRange)
+  const wsDevices = useWorkspaceDevices(activeRange, activeDateRange)
+  const wsBrowsers = useWorkspaceBrowsers(activeRange, activeDateRange)
 
   // Link-level analytics
   const linkStats = useLinkAnalytics(linkId, activeRange, activeDateRange)
@@ -94,37 +104,47 @@ export default function AnalyticsPage() {
 
       <StatsCards stats={stats} isLoading={isLoadingStats} />
 
-      {isLinkView ? (
-        <>
-          <ClicksChart
-            data={timeSeries.data}
-            isLoading={timeSeries.isLoading}
-            interval={interval}
-            onIntervalChange={setInterval}
-          />
+      <ClicksChart
+        data={isLinkView ? timeSeries.data : wsTimeSeries.data}
+        isLoading={isLinkView ? timeSeries.isLoading : wsTimeSeries.isLoading}
+        interval={interval}
+        onIntervalChange={setInterval}
+      />
 
-          <Tabs defaultValue="referrers">
-            <TabsList>
-              <TabsTrigger value="referrers">Referrers</TabsTrigger>
-              <TabsTrigger value="countries">Countries</TabsTrigger>
-              <TabsTrigger value="devices">Devices</TabsTrigger>
-              <TabsTrigger value="browsers">Browsers</TabsTrigger>
-            </TabsList>
-            <TabsContent value="referrers">
-              <ReferrersTable data={referrers.data} isLoading={referrers.isLoading} />
-            </TabsContent>
-            <TabsContent value="countries">
-              <CountriesChart data={countries.data} isLoading={countries.isLoading} />
-            </TabsContent>
-            <TabsContent value="devices">
-              <DevicesPieChart data={devices.data} isLoading={devices.isLoading} />
-            </TabsContent>
-            <TabsContent value="browsers">
-              <BrowsersChart data={browsers.data} isLoading={browsers.isLoading} />
-            </TabsContent>
-          </Tabs>
-        </>
-      ) : (
+      <Tabs defaultValue="referrers">
+        <TabsList>
+          <TabsTrigger value="referrers">Referrers</TabsTrigger>
+          <TabsTrigger value="countries">Countries</TabsTrigger>
+          <TabsTrigger value="devices">Devices</TabsTrigger>
+          <TabsTrigger value="browsers">Browsers</TabsTrigger>
+        </TabsList>
+        <TabsContent value="referrers">
+          <ReferrersTable
+            data={isLinkView ? referrers.data : wsReferrers.data}
+            isLoading={isLinkView ? referrers.isLoading : wsReferrers.isLoading}
+          />
+        </TabsContent>
+        <TabsContent value="countries">
+          <CountriesChart
+            data={isLinkView ? countries.data : wsCountries.data}
+            isLoading={isLinkView ? countries.isLoading : wsCountries.isLoading}
+          />
+        </TabsContent>
+        <TabsContent value="devices">
+          <DevicesPieChart
+            data={isLinkView ? devices.data : wsDevices.data}
+            isLoading={isLinkView ? devices.isLoading : wsDevices.isLoading}
+          />
+        </TabsContent>
+        <TabsContent value="browsers">
+          <BrowsersChart
+            data={isLinkView ? browsers.data : wsBrowsers.data}
+            isLoading={isLinkView ? browsers.isLoading : wsBrowsers.isLoading}
+          />
+        </TabsContent>
+      </Tabs>
+
+      {!isLinkView &&
         workspaceAnalytics.data?.top_links && workspaceAnalytics.data.top_links.length > 0 && (
           <div className="rounded-lg border">
             <div className="border-b p-4">
@@ -147,8 +167,7 @@ export default function AnalyticsPage() {
               ))}
             </div>
           </div>
-        )
-      )}
+        )}
     </div>
   )
 }

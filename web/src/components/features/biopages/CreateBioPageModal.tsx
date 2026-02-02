@@ -11,6 +11,7 @@ import { Textarea } from "@/components/ui/textarea"
 import {
   Dialog,
   DialogContent,
+  DialogDescription,
   DialogHeader,
   DialogTitle,
   DialogFooter,
@@ -84,6 +85,7 @@ export default function CreateBioPageModal({ open, onOpenChange }: CreateBioPage
       <DialogContent className="sm:max-w-md">
         <DialogHeader>
           <DialogTitle>Create Bio Page</DialogTitle>
+          <DialogDescription>Set up a new bio page with a title, slug, and optional bio.</DialogDescription>
         </DialogHeader>
         <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
           <div className="space-y-2">

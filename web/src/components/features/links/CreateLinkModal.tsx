@@ -3,6 +3,7 @@ import { useCreateLink } from "@/hooks/useLinks"
 import {
   Dialog,
   DialogContent,
+  DialogDescription,
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog"
@@ -55,6 +56,7 @@ export default function CreateLinkModal({ open, onOpenChange }: CreateLinkModalP
       <DialogContent className="sm:max-w-lg">
         <DialogHeader>
           <DialogTitle>Create New Link</DialogTitle>
+          <DialogDescription>Enter a destination URL and optional settings for your new short link.</DialogDescription>
         </DialogHeader>
         <form onSubmit={handleSubmit} className="space-y-4">
           <div className="space-y-2">

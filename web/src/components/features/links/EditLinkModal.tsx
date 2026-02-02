@@ -3,6 +3,7 @@ import { useUpdateLink } from "@/hooks/useLinks"
 import {
   Dialog,
   DialogContent,
+  DialogDescription,
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog"
@@ -55,6 +56,7 @@ export default function EditLinkModal({ link, open, onOpenChange }: EditLinkModa
       <DialogContent className="sm:max-w-lg">
         <DialogHeader>
           <DialogTitle>Edit Link</DialogTitle>
+          <DialogDescription>Update the destination URL, title, and settings for this link.</DialogDescription>
         </DialogHeader>
         <form onSubmit={handleSubmit} className="space-y-4">
           <div className="space-y-2">

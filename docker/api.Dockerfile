@@ -21,6 +21,10 @@ RUN apk add --no-cache ca-certificates tzdata && \
 
 COPY --from=builder /build/api /usr/local/bin/api
 
+WORKDIR /app
+
+RUN mkdir -p /app/data/uploads && chown -R linkrift:linkrift /app/data
+
 USER linkrift
 
 EXPOSE 8080

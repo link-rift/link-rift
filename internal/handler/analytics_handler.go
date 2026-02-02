@@ -39,6 +39,11 @@ func (h *AnalyticsHandler) RegisterRoutes(wsScoped *gin.RouterGroup) {
 		analytics.GET("/links/:id/devices", h.GetDevices)
 		analytics.GET("/links/:id/browsers", h.GetBrowsers)
 		analytics.GET("/workspace", h.GetWorkspaceStats)
+		analytics.GET("/workspace/timeseries", h.GetWorkspaceTimeSeries)
+		analytics.GET("/workspace/referrers", h.GetWorkspaceReferrers)
+		analytics.GET("/workspace/countries", h.GetWorkspaceCountries)
+		analytics.GET("/workspace/devices", h.GetWorkspaceDevices)
+		analytics.GET("/workspace/browsers", h.GetWorkspaceBrowsers)
 		analytics.GET("/export", h.ExportData)
 	}
 }
@@ -230,6 +235,100 @@ func (h *AnalyticsHandler) GetWorkspaceStats(c *gin.Context) {
 	dr := h.parseDateRange(c)
 
 	stats, err := h.analyticsService.GetWorkspaceStats(c.Request.Context(), ws.ID, dr)
+	if err != nil {
+		httputil.RespondError(c, err)
+		return
+	}
+
+	httputil.RespondSuccess(c, http.StatusOK, stats)
+}
+
+func (h *AnalyticsHandler) GetWorkspaceTimeSeries(c *gin.Context) {
+	ws := middleware.GetWorkspaceFromContext(c)
+	if ws == nil {
+		httputil.RespondError(c, httputil.Forbidden("workspace access required"))
+		return
+	}
+
+	dr := h.parseDateRange(c)
+	interval := h.parseInterval(c)
+
+	points, err := h.analyticsService.GetWorkspaceTimeSeries(c.Request.Context(), ws.ID, interval, dr)
+	if err != nil {
+		httputil.RespondError(c, err)
+		return
+	}
+
+	httputil.RespondSuccess(c, http.StatusOK, points)
+}
+
+func (h *AnalyticsHandler) GetWorkspaceReferrers(c *gin.Context) {
+	ws := middleware.GetWorkspaceFromContext(c)
+	if ws == nil {
+		httputil.RespondError(c, httputil.Forbidden("workspace access required"))
+		return
+	}
+
+	dr := h.parseDateRange(c)
+	limit := h.parseLimit(c)
+
+	stats, err := h.analyticsService.GetWorkspaceTopReferrers(c.Request.Context(), ws.ID, dr, limit)
+	if err != nil {
+		httputil.RespondError(c, err)
+		return
+	}
+
+	httputil.RespondSuccess(c, http.StatusOK, stats)
+}
+
+func (h *AnalyticsHandler) GetWorkspaceCountries(c *gin.Context) {
+	ws := middleware.GetWorkspaceFromContext(c)
+	if ws == nil {
+		httputil.RespondError(c, httputil.Forbidden("workspace access required"))
+		return
+	}
+
+	dr := h.parseDateRange(c)
+	limit := h.parseLimit(c)
+
+	stats, err := h.analyticsService.GetWorkspaceTopCountries(c.Request.Context(), ws.ID, dr, limit)
+	if err != nil {
+		httputil.RespondError(c, err)
+		return
+	}
+
+	httputil.RespondSuccess(c, http.StatusOK, stats)
+}
+
+func (h *AnalyticsHandler) GetWorkspaceDevices(c *gin.Context) {
+	ws := middleware.GetWorkspaceFromContext(c)
+	if ws == nil {
+		httputil.RespondError(c, httputil.Forbidden("workspace access required"))
+		return
+	}
+
+	dr := h.parseDateRange(c)
+
+	breakdown, err := h.analyticsService.GetWorkspaceDeviceBreakdown(c.Request.Context(), ws.ID, dr)
+	if err != nil {
+		httputil.RespondError(c, err)
+		return
+	}
+
+	httputil.RespondSuccess(c, http.StatusOK, breakdown)
+}
+
+func (h *AnalyticsHandler) GetWorkspaceBrowsers(c *gin.Context) {
+	ws := middleware.GetWorkspaceFromContext(c)
+	if ws == nil {
+		httputil.RespondError(c, httputil.Forbidden("workspace access required"))
+		return
+	}
+
+	dr := h.parseDateRange(c)
+	limit := h.parseLimit(c)
+
+	stats, err := h.analyticsService.GetWorkspaceBrowserBreakdown(c.Request.Context(), ws.ID, dr, limit)
 	if err != nil {
 		httputil.RespondError(c, err)
 		return

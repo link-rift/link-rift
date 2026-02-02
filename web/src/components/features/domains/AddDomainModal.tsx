@@ -8,6 +8,7 @@ import { Label } from "@/components/ui/label"
 import {
   Dialog,
   DialogContent,
+  DialogDescription,
   DialogHeader,
   DialogTitle,
   DialogFooter,
@@ -67,6 +68,7 @@ export default function AddDomainModal({
       <DialogContent className="sm:max-w-md">
         <DialogHeader>
           <DialogTitle>Add Custom Domain</DialogTitle>
+          <DialogDescription>Add a custom domain to use for your short links.</DialogDescription>
         </DialogHeader>
         <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
           <div className="space-y-2">

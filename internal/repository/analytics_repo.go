@@ -20,6 +20,13 @@ type AnalyticsRepository interface {
 	GetTopCountries(ctx context.Context, linkID uuid.UUID, dr models.DateRange, limit int) ([]models.CountryStats, error)
 	GetDeviceBreakdown(ctx context.Context, linkID uuid.UUID, dr models.DateRange) (*models.DeviceBreakdown, error)
 	GetBrowserBreakdown(ctx context.Context, linkID uuid.UUID, dr models.DateRange, limit int) ([]models.BrowserStats, error)
+
+	// Workspace-level breakdowns (aggregate across all links in a workspace).
+	GetWorkspaceTimeSeries(ctx context.Context, workspaceID uuid.UUID, interval models.TimeSeriesInterval, dr models.DateRange) ([]models.TimeSeriesPoint, error)
+	GetWorkspaceTopReferrers(ctx context.Context, workspaceID uuid.UUID, dr models.DateRange, limit int) ([]models.ReferrerStats, error)
+	GetWorkspaceTopCountries(ctx context.Context, workspaceID uuid.UUID, dr models.DateRange, limit int) ([]models.CountryStats, error)
+	GetWorkspaceDeviceBreakdown(ctx context.Context, workspaceID uuid.UUID, dr models.DateRange) (*models.DeviceBreakdown, error)
+	GetWorkspaceBrowserBreakdown(ctx context.Context, workspaceID uuid.UUID, dr models.DateRange, limit int) ([]models.BrowserStats, error)
 }
 
 type clickhouseAnalyticsRepo struct {
@@ -283,6 +290,181 @@ func (r *clickhouseAnalyticsRepo) GetBrowserBreakdown(ctx context.Context, linkI
 		var s models.BrowserStats
 		if err := rows.Scan(&s.Browser, &s.Clicks); err != nil {
 			return nil, fmt.Errorf("clickhouse scan browser: %w", err)
+		}
+		total += s.Clicks
+		stats = append(stats, s)
+	}
+
+	for i := range stats {
+		if total > 0 {
+			stats[i].Percent = float64(stats[i].Clicks) / float64(total) * 100
+		}
+	}
+
+	return stats, nil
+}
+
+func (r *clickhouseAnalyticsRepo) GetWorkspaceTimeSeries(ctx context.Context, workspaceID uuid.UUID, interval models.TimeSeriesInterval, dr models.DateRange) ([]models.TimeSeriesPoint, error) {
+	fn := chTruncFunc(interval)
+
+	rows, err := r.conn.Query(ctx, fmt.Sprintf(`
+		SELECT
+			%s(clicked_at) AS ts,
+			count() AS clicks,
+			uniqExact(ip_address) AS uniq
+		FROM clicks
+		WHERE workspace_id = $1 AND clicked_at >= $2 AND clicked_at <= $3 AND is_bot = 0
+		GROUP BY ts
+		ORDER BY ts ASC
+	`, fn), workspaceID, dr.Start, dr.End)
+	if err != nil {
+		return nil, fmt.Errorf("clickhouse get workspace time series: %w", err)
+	}
+	defer rows.Close()
+
+	var points []models.TimeSeriesPoint
+	for rows.Next() {
+		var p models.TimeSeriesPoint
+		if err := rows.Scan(&p.Timestamp, &p.Clicks, &p.Unique); err != nil {
+			return nil, fmt.Errorf("clickhouse scan workspace time series: %w", err)
+		}
+		points = append(points, p)
+	}
+
+	return points, nil
+}
+
+func (r *clickhouseAnalyticsRepo) GetWorkspaceTopReferrers(ctx context.Context, workspaceID uuid.UUID, dr models.DateRange, limit int) ([]models.ReferrerStats, error) {
+	rows, err := r.conn.Query(ctx, `
+		SELECT
+			if(referer = '', 'Direct', domain(referer)) AS ref,
+			count() AS clicks
+		FROM clicks
+		WHERE workspace_id = $1 AND clicked_at >= $2 AND clicked_at <= $3 AND is_bot = 0
+		GROUP BY ref
+		ORDER BY clicks DESC
+		LIMIT $4
+	`, workspaceID, dr.Start, dr.End, limit)
+	if err != nil {
+		return nil, fmt.Errorf("clickhouse get workspace referrers: %w", err)
+	}
+	defer rows.Close()
+
+	var total int64
+	var stats []models.ReferrerStats
+	for rows.Next() {
+		var s models.ReferrerStats
+		if err := rows.Scan(&s.Referrer, &s.Clicks); err != nil {
+			return nil, fmt.Errorf("clickhouse scan workspace referrer: %w", err)
+		}
+		total += s.Clicks
+		stats = append(stats, s)
+	}
+
+	for i := range stats {
+		if total > 0 {
+			stats[i].Percent = float64(stats[i].Clicks) / float64(total) * 100
+		}
+	}
+
+	return stats, nil
+}
+
+func (r *clickhouseAnalyticsRepo) GetWorkspaceTopCountries(ctx context.Context, workspaceID uuid.UUID, dr models.DateRange, limit int) ([]models.CountryStats, error) {
+	rows, err := r.conn.Query(ctx, `
+		SELECT
+			if(country_code = '', 'Unknown', country_code) AS cc,
+			count() AS clicks
+		FROM clicks
+		WHERE workspace_id = $1 AND clicked_at >= $2 AND clicked_at <= $3 AND is_bot = 0
+		GROUP BY cc
+		ORDER BY clicks DESC
+		LIMIT $4
+	`, workspaceID, dr.Start, dr.End, limit)
+	if err != nil {
+		return nil, fmt.Errorf("clickhouse get workspace countries: %w", err)
+	}
+	defer rows.Close()
+
+	var total int64
+	var stats []models.CountryStats
+	for rows.Next() {
+		var s models.CountryStats
+		if err := rows.Scan(&s.CountryCode, &s.Clicks); err != nil {
+			return nil, fmt.Errorf("clickhouse scan workspace country: %w", err)
+		}
+		s.Country = s.CountryCode
+		total += s.Clicks
+		stats = append(stats, s)
+	}
+
+	for i := range stats {
+		if total > 0 {
+			stats[i].Percent = float64(stats[i].Clicks) / float64(total) * 100
+		}
+	}
+
+	return stats, nil
+}
+
+func (r *clickhouseAnalyticsRepo) GetWorkspaceDeviceBreakdown(ctx context.Context, workspaceID uuid.UUID, dr models.DateRange) (*models.DeviceBreakdown, error) {
+	rows, err := r.conn.Query(ctx, `
+		SELECT
+			if(device_type = '', 'desktop', device_type) AS dt,
+			count() AS clicks
+		FROM clicks
+		WHERE workspace_id = $1 AND clicked_at >= $2 AND clicked_at <= $3 AND is_bot = 0
+		GROUP BY dt
+	`, workspaceID, dr.Start, dr.End)
+	if err != nil {
+		return nil, fmt.Errorf("clickhouse get workspace devices: %w", err)
+	}
+	defer rows.Close()
+
+	breakdown := &models.DeviceBreakdown{}
+	for rows.Next() {
+		var dt string
+		var clicks int64
+		if err := rows.Scan(&dt, &clicks); err != nil {
+			return nil, fmt.Errorf("clickhouse scan workspace device: %w", err)
+		}
+		switch dt {
+		case "desktop":
+			breakdown.Desktop = clicks
+		case "mobile":
+			breakdown.Mobile = clicks
+		case "tablet":
+			breakdown.Tablet = clicks
+		default:
+			breakdown.Other += clicks
+		}
+	}
+
+	return breakdown, nil
+}
+
+func (r *clickhouseAnalyticsRepo) GetWorkspaceBrowserBreakdown(ctx context.Context, workspaceID uuid.UUID, dr models.DateRange, limit int) ([]models.BrowserStats, error) {
+	rows, err := r.conn.Query(ctx, `
+		SELECT
+			if(browser = '', 'Unknown', browser) AS b,
+			count() AS clicks
+		FROM clicks
+		WHERE workspace_id = $1 AND clicked_at >= $2 AND clicked_at <= $3 AND is_bot = 0
+		GROUP BY b
+		ORDER BY clicks DESC
+		LIMIT $4
+	`, workspaceID, dr.Start, dr.End, limit)
+	if err != nil {
+		return nil, fmt.Errorf("clickhouse get workspace browsers: %w", err)
+	}
+	defer rows.Close()
+
+	var total int64
+	var stats []models.BrowserStats
+	for rows.Next() {
+		var s models.BrowserStats
+		if err := rows.Scan(&s.Browser, &s.Clicks); err != nil {
+			return nil, fmt.Errorf("clickhouse scan workspace browser: %w", err)
 		}
 		total += s.Clicks
 		stats = append(stats, s)

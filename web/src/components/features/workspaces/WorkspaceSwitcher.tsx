@@ -13,6 +13,7 @@ import {
 import {
   Dialog,
   DialogContent,
+  DialogDescription,
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog"
@@ -76,6 +77,7 @@ export default function WorkspaceSwitcher() {
         <DialogContent className="sm:max-w-md">
           <DialogHeader>
             <DialogTitle>Create Workspace</DialogTitle>
+            <DialogDescription>Create a new workspace to organize your links and team.</DialogDescription>
           </DialogHeader>
           <div className="space-y-4">
             <div className="space-y-2">

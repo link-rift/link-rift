@@ -11,6 +11,16 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog"
 import type { Link } from "@/types/link"
 
 const QRCodeModal = lazy(() => import("@/components/features/qrcodes/QRCodeModal"))
@@ -27,6 +37,7 @@ export default function LinkRow({ link, selected, onSelect, onEdit }: LinkRowPro
   const deleteLink = useDeleteLink()
   const [copied, setCopied] = useState(false)
   const [showQRModal, setShowQRModal] = useState(false)
+  const [showDeleteDialog, setShowDeleteDialog] = useState(false)
 
   function copyShortUrl() {
     navigator.clipboard.writeText(link.short_url)
@@ -35,9 +46,8 @@ export default function LinkRow({ link, selected, onSelect, onEdit }: LinkRowPro
   }
 
   function handleDelete() {
-    if (window.confirm("Are you sure you want to delete this link?")) {
-      deleteLink.mutate(link.id)
-    }
+    deleteLink.mutate(link.id)
+    setShowDeleteDialog(false)
   }
 
   const isExpired = link.expires_at && new Date(link.expires_at) < new Date()
@@ -120,7 +130,7 @@ export default function LinkRow({ link, selected, onSelect, onEdit }: LinkRowPro
             </DropdownMenuItem>
             <DropdownMenuSeparator />
             <DropdownMenuItem
-              onClick={handleDelete}
+              onClick={() => setShowDeleteDialog(true)}
               className="text-destructive focus:text-destructive"
             >
               Delete
@@ -128,6 +138,27 @@ export default function LinkRow({ link, selected, onSelect, onEdit }: LinkRowPro
           </DropdownMenuContent>
         </DropdownMenu>
       </div>
+
+      <AlertDialog open={showDeleteDialog} onOpenChange={setShowDeleteDialog}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete link</AlertDialogTitle>
+            <AlertDialogDescription>
+              Are you sure you want to delete this link? This action cannot be
+              undone and all analytics data will be lost.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={handleDelete}
+              className="bg-destructive text-white hover:bg-destructive/90"
+            >
+              Delete
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
 
       {showQRModal && (
         <Suspense fallback={null}>

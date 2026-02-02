@@ -10,6 +10,7 @@ import { Checkbox } from "@/components/ui/checkbox"
 import {
   Dialog,
   DialogContent,
+  DialogDescription,
   DialogHeader,
   DialogTitle,
   DialogFooter,
@@ -94,6 +95,7 @@ export default function CreateAPIKeyModal({
         <DialogContent className="sm:max-w-lg">
           <DialogHeader>
             <DialogTitle>API Key Created</DialogTitle>
+            <DialogDescription>Copy your API key below. It will not be shown again.</DialogDescription>
           </DialogHeader>
           <div className="space-y-4">
             <p className="text-sm text-muted-foreground">
@@ -124,6 +126,7 @@ export default function CreateAPIKeyModal({
       <DialogContent className="sm:max-w-lg">
         <DialogHeader>
           <DialogTitle>Create API Key</DialogTitle>
+          <DialogDescription>Generate a new API key with specific scopes and an optional expiration date.</DialogDescription>
         </DialogHeader>
         <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
           <div className="space-y-2">

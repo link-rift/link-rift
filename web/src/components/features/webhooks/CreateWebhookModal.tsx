@@ -10,6 +10,7 @@ import { Checkbox } from "@/components/ui/checkbox"
 import {
   Dialog,
   DialogContent,
+  DialogDescription,
   DialogHeader,
   DialogTitle,
   DialogFooter,
@@ -106,6 +107,7 @@ export default function CreateWebhookModal({
         <DialogContent className="sm:max-w-lg">
           <DialogHeader>
             <DialogTitle>Webhook Created</DialogTitle>
+            <DialogDescription>Copy your webhook signing secret below. It will not be shown again.</DialogDescription>
           </DialogHeader>
           <div className="space-y-4">
             <p className="text-sm text-muted-foreground">
@@ -137,6 +139,7 @@ export default function CreateWebhookModal({
       <DialogContent className="sm:max-w-lg">
         <DialogHeader>
           <DialogTitle>Create Webhook</DialogTitle>
+          <DialogDescription>Configure a webhook endpoint to receive event notifications.</DialogDescription>
         </DialogHeader>
         <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
           <div className="space-y-2">

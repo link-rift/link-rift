@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button"
 import {
   Dialog,
   DialogContent,
+  DialogDescription,
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog"
@@ -49,6 +50,7 @@ export default function InviteMemberModal({ open, onOpenChange }: InviteMemberMo
       <DialogContent className="sm:max-w-md">
         <DialogHeader>
           <DialogTitle>Invite Member</DialogTitle>
+          <DialogDescription>Send an invitation to a new team member with a specific role.</DialogDescription>
         </DialogHeader>
         <div className="space-y-4">
           <div className="space-y-2">
