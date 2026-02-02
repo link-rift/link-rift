@@ -41,7 +41,7 @@ export default function RegisterPage() {
   }
 
   return (
-    <Card>
+    <Card className="animate-slide-up shadow-xl shadow-primary/5 border-border/50">
       <CardHeader className="text-center">
         <CardTitle className="text-2xl">Create an account</CardTitle>
         <CardDescription>Get started with Linkrift</CardDescription>

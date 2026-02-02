@@ -36,7 +36,7 @@ export default function LinksPage() {
   const hasMore = offset + PAGE_SIZE < total
 
   return (
-    <div className="space-y-6">
+    <div className="animate-fade-in space-y-6">
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-bold tracking-tight">Links</h1>

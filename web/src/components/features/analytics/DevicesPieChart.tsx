@@ -9,10 +9,10 @@ interface DevicesPieChartProps {
 }
 
 const COLORS = [
-  "hsl(var(--primary))",
-  "hsl(var(--chart-2, 220 70% 50%))",
-  "hsl(var(--chart-3, 280 65% 60%))",
-  "hsl(var(--chart-4, 30 80% 55%))",
+  "var(--primary)",
+  "var(--chart-2)",
+  "var(--chart-3)",
+  "var(--chart-4)",
 ]
 
 export default function DevicesPieChart({ data, isLoading }: DevicesPieChartProps) {

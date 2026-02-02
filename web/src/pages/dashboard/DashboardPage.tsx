@@ -11,9 +11,9 @@ export default function DashboardPage() {
   const { recentClicks } = useRealtimeAnalytics()
 
   return (
-    <div className="space-y-6">
+    <div className="animate-fade-in space-y-6">
       <div>
-        <h2 className="text-2xl font-bold tracking-tight">
+        <h2 className="text-3xl font-bold tracking-tight">
           Welcome{user?.name ? `, ${user.name}` : ""}
         </h2>
         <p className="text-muted-foreground mt-1">

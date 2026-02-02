@@ -84,8 +84,8 @@ export default function ClicksChart({
             <AreaChart data={chartData}>
               <defs>
                 <linearGradient id="clickGradient" x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="5%" stopColor="hsl(var(--primary))" stopOpacity={0.3} />
-                  <stop offset="95%" stopColor="hsl(var(--primary))" stopOpacity={0} />
+                  <stop offset="5%" stopColor="var(--primary)" stopOpacity={0.3} />
+                  <stop offset="95%" stopColor="var(--primary)" stopOpacity={0} />
                 </linearGradient>
               </defs>
               <CartesianGrid strokeDasharray="3 3" className="stroke-muted" />
@@ -93,20 +93,20 @@ export default function ClicksChart({
               <YAxis className="text-xs" />
               <Tooltip
                 contentStyle={{
-                  backgroundColor: "hsl(var(--card))",
-                  border: "1px solid hsl(var(--border))",
+                  backgroundColor: "var(--card)",
+                  border: "1px solid var(--border)",
                   borderRadius: "6px",
                 }}
               />
               <Area
                 type="monotone"
                 dataKey={showUnique ? "unique" : "clicks"}
-                stroke="hsl(var(--primary))"
+                stroke="var(--primary)"
                 fill="url(#clickGradient)"
                 strokeWidth={2}
               />
               {chartData.length > 30 && (
-                <Brush dataKey="date" height={30} stroke="hsl(var(--muted-foreground))" />
+                <Brush dataKey="date" height={30} stroke="var(--muted-foreground)" />
               )}
             </AreaChart>
           </ResponsiveContainer>

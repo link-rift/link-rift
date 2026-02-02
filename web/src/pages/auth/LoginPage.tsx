@@ -38,7 +38,7 @@ export default function LoginPage() {
   }
 
   return (
-    <Card>
+    <Card className="animate-slide-up shadow-xl shadow-primary/5 border-border/50">
       <CardHeader className="text-center">
         <CardTitle className="text-2xl">Welcome back</CardTitle>
         <CardDescription>Sign in to your Linkrift account</CardDescription>

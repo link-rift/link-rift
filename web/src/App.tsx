@@ -1,5 +1,6 @@
 import { BrowserRouter, Routes, Route } from "react-router-dom"
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query"
+import { ThemeProvider } from "next-themes"
 import AuthLayout from "@/components/layouts/AuthLayout"
 import AppLayout from "@/components/layouts/AppLayout"
 import ProtectedRoute from "@/components/features/auth/ProtectedRoute"
@@ -37,6 +38,7 @@ const queryClient = new QueryClient({
 
 export default function App() {
   return (
+    <ThemeProvider attribute="class" defaultTheme="light" enableSystem>
     <QueryClientProvider client={queryClient}>
       <BrowserRouter>
         <Routes>
@@ -71,5 +73,6 @@ export default function App() {
         </Routes>
       </BrowserRouter>
     </QueryClientProvider>
+    </ThemeProvider>
   )
 }
