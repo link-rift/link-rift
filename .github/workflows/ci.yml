@@ -18,8 +18,8 @@ jobs:
       go: ${{ steps.filter.outputs.go }}
       frontend: ${{ steps.filter.outputs.frontend }}
     steps:
-      - uses: actions/checkout@v4
-      - uses: dorny/paths-filter@v3
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
+      - uses: dorny/paths-filter@de90cc6fb38fc0963ad72b210f1f284cd68cea36 # v3
         id: filter
         with:
           filters: |
@@ -37,12 +37,12 @@ jobs:
     if: needs.changes.outputs.go == "true"
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-go@v5
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
+      - uses: actions/setup-go@40f1582b2485089dde7abd97c1529aa768e1baff # v5
         with:
           go-version: ${{ env.GO_VERSION }}
           cache: true
-      - uses: golangci/golangci-lint-action@v4
+      - uses: golangci/golangci-lint-action@d6238b002a20823d52840fda27e2d4891c5952dc # v4
         with:
           version: v1.55.2
           args: --timeout=5m
@@ -82,8 +82,8 @@ jobs:
           --health-timeout 5s
           --health-retries 5
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-go@v5
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
+      - uses: actions/setup-go@40f1582b2485089dde7abd97c1529aa768e1baff # v5
         with:
           go-version: ${{ env.GO_VERSION }}
           cache: true
@@ -92,7 +92,7 @@ jobs:
         env:
           DATABASE_URL: postgres://test:test@localhost:5432/linkrift_test?sslmode=disable
           REDIS_URL: redis://localhost:6379/0
-      - uses: codecov/codecov-action@v4
+      - uses: codecov/codecov-action@b9fd7d16f6d7d1b5d2bec1a2887e65ceed900238 # v4
         with:
           files: ./coverage.out
           fail_ci_if_error: false
@@ -106,14 +106,14 @@ jobs:
       matrix:
         service: [api, redirect, worker]
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-go@v5
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
+      - uses: actions/setup-go@40f1582b2485089dde7abd97c1529aa768e1baff # v5
         with:
           go-version: ${{ env.GO_VERSION }}
           cache: true
       - name: Build
         run: CGO_ENABLED=0 go build -o build/${{ matrix.service }} ./cmd/${{ matrix.service }}
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
           name: ${{ matrix.service }}
           path: build/${{ matrix.service }}
@@ -128,8 +128,8 @@ jobs:
       run:
         working-directory: web
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
         with:
           node-version: ${{ env.NODE_VERSION }}
           cache: npm
@@ -152,4 +152,4 @@ jobs:
             echo "One or more jobs failed"
             exit 1
           fi
-          echo "All CI jobs passed\!"
+          echo "All CI jobs passed!"
