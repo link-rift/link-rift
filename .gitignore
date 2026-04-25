@@ -40,6 +40,8 @@ go.work.sum
 /api
 /redirect
 /worker
+/cli
+/scheduler
 
 # =============================================================================
 # Node.js / Frontend

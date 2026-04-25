@@ -1,13 +1,30 @@
-import { describe, it, expect, vi, beforeAll, afterAll, afterEach } from "vitest"
+import { describe, it, expect, vi, beforeAll, afterAll, afterEach, beforeEach } from "vitest"
 import { screen } from "@testing-library/react"
 import userEvent from "@testing-library/user-event"
 import { render } from "@/test/utils"
 import BulkActions from "../BulkActions"
 import { server } from "@/test/mocks/server"
+import { useWorkspaceStore } from "@/stores/workspaceStore"
+import { MOCK_WORKSPACE_ID } from "@/test/mocks/handlers"
 
 beforeAll(() => server.listen({ onUnhandledRequest: "bypass" }))
 afterEach(() => server.resetHandlers())
 afterAll(() => server.close())
+
+beforeEach(() => {
+  useWorkspaceStore.setState({
+    currentWorkspace: {
+      id: MOCK_WORKSPACE_ID,
+      name: "Test",
+      slug: "test",
+      owner_id: "aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa",
+      plan: "free",
+      settings: null,
+      created_at: "2025-01-15T10:00:00Z",
+      updated_at: "2025-01-15T10:00:00Z",
+    },
+  })
+})
 
 describe("BulkActions", () => {
   it("renders nothing when selectedCount is 0", () => {
@@ -43,28 +60,32 @@ describe("BulkActions", () => {
     expect(onClear).toHaveBeenCalledOnce()
   })
 
-  it("prompts confirm before deleting", async () => {
-    const confirmSpy = vi.spyOn(window, "confirm").mockReturnValue(false)
+  it("opens confirmation dialog and does not delete when canceled", async () => {
     const onClear = vi.fn()
 
     render(<BulkActions selectedCount={1} selectedIds={new Set(["a"])} onClear={onClear} />)
 
     await userEvent.click(screen.getByRole("button", { name: "Delete Selected" }))
-    expect(confirmSpy).toHaveBeenCalledWith("Are you sure you want to delete 1 link(s)?")
-    // Should not call onClear since confirm was false
+
+    const dialog = await screen.findByRole("alertdialog")
+    expect(dialog).toBeInTheDocument()
+
+    await userEvent.click(screen.getByRole("button", { name: "Cancel" }))
     expect(onClear).not.toHaveBeenCalled()
-    confirmSpy.mockRestore()
   })
 
-  it("deletes and clears when confirm is accepted", async () => {
-    const confirmSpy = vi.spyOn(window, "confirm").mockReturnValue(true)
+  it("deletes and clears when confirmed in dialog", async () => {
     const onClear = vi.fn()
 
     render(<BulkActions selectedCount={1} selectedIds={new Set(["a"])} onClear={onClear} />)
 
     await userEvent.click(screen.getByRole("button", { name: "Delete Selected" }))
-    expect(confirmSpy).toHaveBeenCalled()
+
+    const dialog = await screen.findByRole("alertdialog")
+    const confirmButton = await screen.findByRole("button", { name: "Delete" })
+    expect(dialog).toContainElement(confirmButton)
+
+    await userEvent.click(confirmButton)
     expect(onClear).toHaveBeenCalledOnce()
-    confirmSpy.mockRestore()
   })
 })

@@ -1,13 +1,30 @@
-import { describe, it, expect, vi, beforeAll, afterAll, afterEach } from "vitest"
+import { describe, it, expect, vi, beforeAll, afterAll, afterEach, beforeEach } from "vitest"
 import { screen, waitFor } from "@testing-library/react"
 import userEvent from "@testing-library/user-event"
 import { render } from "@/test/utils"
 import CreateLinkModal from "../CreateLinkModal"
 import { server } from "@/test/mocks/server"
+import { useWorkspaceStore } from "@/stores/workspaceStore"
+import { MOCK_WORKSPACE_ID } from "@/test/mocks/handlers"
 
 beforeAll(() => server.listen({ onUnhandledRequest: "bypass" }))
 afterEach(() => server.resetHandlers())
 afterAll(() => server.close())
+
+beforeEach(() => {
+  useWorkspaceStore.setState({
+    currentWorkspace: {
+      id: MOCK_WORKSPACE_ID,
+      name: "Test",
+      slug: "test",
+      owner_id: "aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa",
+      plan: "free",
+      settings: null,
+      created_at: "2025-01-15T10:00:00Z",
+      updated_at: "2025-01-15T10:00:00Z",
+    },
+  })
+})
 
 describe("CreateLinkModal", () => {
   const defaultProps = {
