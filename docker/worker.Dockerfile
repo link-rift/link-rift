@@ -14,7 +14,7 @@ RUN CGO_ENABLED=0 GOOS=linux GOARCH=amd64 \
     go build -trimpath -ldflags="-s -w" -o /build/worker ./cmd/worker
 
 # ── Runtime stage ────────────────────────────
-FROM alpine:3.19
+FROM alpine:3.23
 
 RUN apk add --no-cache ca-certificates tzdata && \
     addgroup -S linkrift && adduser -S linkrift -G linkrift
